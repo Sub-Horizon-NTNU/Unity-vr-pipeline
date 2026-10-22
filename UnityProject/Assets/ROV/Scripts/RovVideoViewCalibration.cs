@@ -412,11 +412,12 @@ namespace ROVVR
 
         private void ReadControls()
         {
+            PreparePointerInput();
             ReadPilotButtons(IsHeadReady());
             var left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
             if (IsHeadReady())
             {
-                if (!pilotMenuOpen && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
+                if (!pilotMenuOpen && !WindowDragActive && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
                     && left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick))
                 {
                     left.TryGetFeatureValue(CommonUsages.gripButton, out bool grip);

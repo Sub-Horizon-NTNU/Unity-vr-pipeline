@@ -12,6 +12,7 @@ namespace ROVVR
     }
 
     public enum RovPilotAction { Follow, Hud, Center, Save, Menu, ZoomIn, ZoomOut, AimZoom, ResetZoom, Load }
+    public enum RovWindowGrabButton { LeftTrigger, LeftGrip, LeftStick }
     public enum RovPilotButton { None, X, Y, A, B, LeftStick, RightStick, LeftMenu, LeftTrigger, RightTrigger, LeftGrip, RightGrip, RightUp, RightDown }
     public enum RovPilotKey { None, F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12, C, Z, V, G, H, J, K, L }
 
@@ -36,6 +37,13 @@ namespace ROVVR
         public float detailWidth = 0.8f;
         public Vector3 detailAngles = new Vector3(0f, 25f, 0f);
         public float menuDistance = 1.25f, menuHeight = -0.05f;
+        public float menuSide;
+        public bool windowDraggingEnabled = true;
+        public RovWindowGrabButton windowGrabButton = RovWindowGrabButton.LeftTrigger;
+        public float windowMoveSpeed = 0.6f;
+        public float pointerYawSensitivity = 1.2f, pointerPitchSensitivity = 0.8f;
+        public float pointerPitchOffset, pointerYawOffset;
+        public float pointerSmoothingSeconds = 0.025f;
         public bool stickCalibrationEnabled = true;
         public RovPilotBinding[] bindings = Defaults();
 
@@ -56,14 +64,23 @@ namespace ROVVR
         public void Validate()
         {
             foreach (float f in new[] {mainZoom, detailZoom, zoomCenter.x, zoomCenter.y, detailPosition.x,
-                detailPosition.y, detailPosition.z, detailWidth, detailAngles.x, detailAngles.y, detailAngles.z, menuDistance, menuHeight})
+                detailPosition.y, detailPosition.z, detailWidth, detailAngles.x, detailAngles.y, detailAngles.z, menuDistance, menuHeight,
+                menuSide, windowMoveSpeed, pointerYawSensitivity, pointerPitchSensitivity, pointerPitchOffset, pointerYawOffset, pointerSmoothingSeconds})
                 if (!RovCameraPoseMath.Finite(f)) throw new ArgumentException("Pilot settings contain a non-finite number.");
             mainZoom = Mathf.Clamp(mainZoom, 1f, 8f); detailZoom = Mathf.Clamp(detailZoom, 1f, 8f);
             zoomCenter = new Vector2(Mathf.Clamp01(zoomCenter.x), Mathf.Clamp01(zoomCenter.y));
             detailWidth = Mathf.Clamp(detailWidth, 0.3f, 2f);
             detailPosition = new Vector3(Mathf.Clamp(detailPosition.x, -3f, 3f), Mathf.Clamp(detailPosition.y, -2f, 2f), Mathf.Clamp(detailPosition.z, 0.6f, 4f));
             detailAngles = new Vector3(Mathf.Clamp(detailAngles.x, -60f, 60f), Mathf.Clamp(detailAngles.y, -80f, 80f), Mathf.Clamp(detailAngles.z, -45f, 45f));
-            menuDistance = Mathf.Clamp(menuDistance, 0.8f, 2f); menuHeight = Mathf.Clamp(menuHeight, -0.6f, 0.6f);
+            menuDistance = Mathf.Clamp(menuDistance, 0.8f, 3f); menuHeight = Mathf.Clamp(menuHeight, -1.5f, 1.5f);
+            menuSide = Mathf.Clamp(menuSide, -2f, 2f);
+            windowMoveSpeed = Mathf.Clamp(windowMoveSpeed, 0.1f, 2f);
+            pointerYawSensitivity = Mathf.Clamp(pointerYawSensitivity, 0.4f, 2.5f);
+            pointerPitchSensitivity = Mathf.Clamp(pointerPitchSensitivity, 0.4f, 2.5f);
+            pointerPitchOffset = Mathf.Clamp(pointerPitchOffset, -45f, 45f);
+            pointerYawOffset = Mathf.Clamp(pointerYawOffset, -30f, 30f);
+            pointerSmoothingSeconds = Mathf.Clamp(pointerSmoothingSeconds, 0f, 0.15f);
+            if (!Enum.IsDefined(typeof(RovWindowGrabButton), windowGrabButton)) throw new ArgumentException("Invalid window grab button.");
             var defaults = Defaults();
             if (bindings == null || bindings.Length != defaults.Length) bindings = defaults;
             var actions = new bool[defaults.Length];

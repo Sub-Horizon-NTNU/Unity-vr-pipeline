@@ -2,6 +2,11 @@
 
 ## Etter v1 — under utvikling
 
+- Tydelig pekerpunkt på meny/detaljvideo og markering når et vindu gripes.
+- Venstre avtrekker griper vinduer; venstre spak flytter, grip + spak endrer dybde.
+- Touch-lignende kontrollermarkører, OpenXR-siktepose, justerbar pekerfølsomhet og siktevinkel.
+- Menyslideren beholder valgt rad under drag, så vertikal håndbevegelse ikke endrer andre verdier.
+
 - Digital hovedzoom og valgfritt flyttbart detaljvindu som deler videoteksturen.
 - Valg av zoompunkt på den buede flaten med kontrollerpeker.
 - VR-meny med bilde-, HUD-, layout-, zoom-, kompass- og tiltinnstillinger.

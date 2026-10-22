@@ -36,7 +36,8 @@ namespace ROVVR.Editor
             else if (action == "next")
             {
                 var field = typeof(RovVideoViewCalibration).GetField("pilotPage", Private);
-                field.SetValue(view, ((int)field.GetValue(view) + 1) % 8);
+                int count = ((string[])typeof(RovVideoViewCalibration).GetField("PilotPages", BindingFlags.Static | BindingFlags.NonPublic).GetValue(null)).Length;
+                field.SetValue(view, ((int)field.GetValue(view) + 1) % count);
                 typeof(RovVideoViewCalibration).GetMethod("BuildMenuPage", Private).Invoke(view, null);
             }
             else if (action != "status") throw new ArgumentException("Unknown pilot tools request.");

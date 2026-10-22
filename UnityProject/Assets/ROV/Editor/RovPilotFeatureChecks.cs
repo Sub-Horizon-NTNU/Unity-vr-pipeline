@@ -88,7 +88,7 @@ namespace ROVVR.Editor
                 UnityEngine.Object.DestroyImmediate(go); if (mesh != null) UnityEngine.Object.DestroyImmediate(mesh);
                 foreach (string path in new[] {profilePath, profilePath + ".bak", profilePath + ".tmp"}) if (File.Exists(path)) File.Delete(path);
             }
-            return checks;
+            return checks + RovPointerChecks.Run();
         }
         private static void Invoke(object target, string name) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
         private static void Near(float a, float b) => Expect(Mathf.Abs(a - b) < 0.001f, $"Expected {b}, got {a}");

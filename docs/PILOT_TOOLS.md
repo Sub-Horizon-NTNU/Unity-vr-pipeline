@@ -47,8 +47,10 @@ ingen pause-/frigivingskommando til servoen. Hodefølging fortsetter med sine
 vanlige sperrer. Lås med A før åpning, eller bruk menyens Hodefølging-valg,
 hvis dere ønsker å låse kameraet mens innstillinger justeres.
 
-Pek med en av kontrollerne og trykk avtrekkeren. På verdifelt kan du holde
-avtrekkeren og dra venstre/høyre over feltet. Pilene øverst bytter side:
+Pek med høyre kontroller og trykk høyre avtrekker. På verdifelt kan du holde
+avtrekkeren og dra venstre/høyre over feltet. Feltet beholdes under draget,
+så en liten bevegelse opp/ned ikke begynner å justere raden ved siden av.
+Pilene øverst bytter side:
 
 1. **Zoom:** hovedzoom, detaljvindu, detaljzoom, målpunkt og kontrollervisning.
 2. **Detail placement:** plassering, størrelse og vinkling av detaljvinduet.
@@ -58,14 +60,59 @@ avtrekkeren og dra venstre/høyre over feltet. Pilene øverst bytter side:
 6. **Compass / Tilt:** kompassgeometri, IMU-/servoutjevning, servofart og pitch-kompensasjon.
 7. **Profiles:** velg, last eller lagre profiler; lagre start-JSON; juster og flytt menyen.
 8. **Bindings:** velg handling og bytt kontrollerknapp/tast.
+9. **Pointers:** følsomhet, siktevinkel, utjevning og sentrering av pekerne.
+10. **Move windows:** gripeknapp, flyttehastighet og menyplassering.
 
 Menyen kan alltid lukkes med CLOSE, også etter ombinding av menyknappen.
 Venstre spaks bildejustering og øvrige pilotsnarveier er sperret mens menyen
 er åpen. Pekerne vises i menyen selv om de er skjult under vanlig pilotering.
 
-Kontrollerne vises som enkle markører, ikke detaljerte Quest-modeller.
 Spakknoppen viser faktisk spakutslag. Modellene og pekerne har separate av/på-valg.
 Systemknapper som Quest/Meta eies av runtime og kan ikke ombindes av programmet.
+
+## Peker og flytting av vinduer
+
+En lys ring med cyan senter vises der pekeren treffer menyen eller
+detaljvinduet, også over tom menybakgrunn. Ringen og vinduets tittel blir
+gule når venstre kontroller holder vinduet. Høyre peker markerer feltet
+under seg. Når spaken flytter vinduet bort fra strålen, blir gripeindikatoren
+holdt på nærmeste vinduskant.
+
+**Venstre avtrekker foran griper vinduer; høyre avtrekker velger.**
+Pek på menyen eller detaljvinduet, trykk og hold venstre avtrekker, og flytt
+kontrolleren eller bruk venstre spak. Spak høyre/venstre flytter sideveis;
+opp/ned flytter i høyden. Hold i tillegg venstre grip-knapp for å bruke
+spak opp/ned til avstand. Slipp avtrekkeren for å plassere vinduet.
+Vinduet hopper ikke til pekerens senter når du griper det.
+
+Gripeknappen kan endres til venstre grip eller venstre spakklikk. Ved grip
+som gripeknapp brukes spaken til side/høyde uten avstandsmodifikator.
+Flyttehastighet og funksjonen av/på finnes i Move windows og PC-panelet.
+Under flytting er venstre spaks bildekalibrering og øvrige pilotvalg sperret.
+Ved tapt sporing eller VR-fokus slippes vinduet; slipp og trykk gripeknappen
+igjen etter at sporingen er tilbake.
+
+Detaljvinduet følger HUD-ens koordinatsystem som før. Menyen står i ro i
+rommet mens den er åpen. Dens side-/høyde-/avstandsverdier brukes relativt
+til synsretningen neste gang den åpnes. **Lagre JSON eller en profil** for
+å beholde plasseringen mellom oppstarter.
+
+Kontrollerne har en enkel Touch-lignende markør med grep, topp, knapper,
+spak og sporingsring. Dette er en illustrasjon, ikke Metas offisielle modell.
+Pekeren bruker OpenXR-sikteposen direkte gjennom Input System, med eldre
+XR-siktepose og til slutt håndtakets pose som reserve.
+
+Under **Pointers** kan dere justere:
+
+- Horizontal / Vertical sensitivity: standard **1,20× / 0,80×**. Lavere vertikal
+  verdi gir roligere opp/ned-bevegelse, men krever større håndutslag. Øk
+  verdien hvis dere vil nå hele menyen med mindre bevegelse.
+- Aim pitch / yaw: fast vinkelkorreksjon. Positiv pitch peker høyere.
+- Pointer smoothing: standard **0,025 s**, 0 slår av. Gjelder bare pekerne;
+  videoflate, hodesporing og fysisk servo filtreres ikke av dette valget.
+- Center LEFT/RIGHT pointer to gaze: hold kontrolleren komfortabelt og se
+  mot ønsket senter. Funksjonen lar denne håndstillingen peke dit. Denne
+  sentreringen gjelder økten; tallverdiene over lagres i JSON/profiler.
 
 ## Profiler på PC og i VR
 
@@ -114,7 +161,7 @@ separate R/P-snarveier er faste og ombindes ikke her. R/P ligger i
 servokontrolleren. Venstre spaks eksisterende kalibrering med grip-/trigger-
 modifikatorer kan slås av i de nye innstillingene.
 
-Menyen bruker begge avtrekkere som UI-klikk mens den er åpen. Hvis en
+Menyen bruker høyre avtrekker som UI-klikk mens den er åpen. Hvis en
 avtrekker/grip ombindes til en annen handling, vær oppmerksom på venstre
 spaks modifikatorer; slå av venstre spakkalibrering hvis de kolliderer med
 egen foretrukket bruk.

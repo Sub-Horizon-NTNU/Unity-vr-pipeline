@@ -91,7 +91,8 @@ namespace ROVVR
 #endif
                 bool repeat = controlsLive && held && (binding.action == RovPilotAction.ZoomIn || binding.action == RovPilotAction.ZoomOut)
                     && Time.unscaledTime >= nextZoomStep;
-                bool suppress = (pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu;
+                bool suppress = ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
+                    || (GrabConsumesPilotInput(binding.button) && binding.action != RovPilotAction.Menu);
                 if (ProcessPilotInput(binding.action, held, controlsLive, key, repeat, suppress))
                 {
                     if (binding.action == RovPilotAction.Load) { pilotHadFocus = ready; return; }
@@ -149,8 +150,9 @@ namespace ROVVR
             EnsurePilotMaterials();
             UpdateZoomMesh();
             UpdateDetailView();
-            UpdateController(0); UpdateController(1);
+            if (pilotMenuOpen) ApplyMenuPlacement();
             UpdatePilotMenu();
+            UpdatePointerFeedback();
         }
 
         private void EnsurePilotMaterials()
@@ -249,6 +251,7 @@ namespace ROVVR
 
         private void HidePilotTools()
         {
+            HidePointerInteraction();
             if (detailCanvas != null) detailCanvas.gameObject.SetActive(false);
             if (pilotMenuRoot != null) pilotMenuRoot.gameObject.SetActive(false);
             pilotMenuOpen = false;
@@ -266,13 +269,7 @@ namespace ROVVR
                 && device.TryGetFeatureValue(CommonUsages.devicePosition, out _) && device.TryGetFeatureValue(CommonUsages.deviceRotation, out _);
             if (controllerModels[index] == null)
             {
-                controllerModels[index] = new GameObject(index == 0 ? "ROV left controller" : "ROV right controller").transform;
-                var body = GameObject.CreatePrimitive(PrimitiveType.Capsule); Destroy(body.GetComponent<Collider>());
-                body.transform.SetParent(controllerModels[index], false); body.transform.localScale = new Vector3(0.035f, 0.06f, 0.035f);
-                body.GetComponent<Renderer>().sharedMaterial = controllerMaterial;
-                var stick = GameObject.CreatePrimitive(PrimitiveType.Sphere); Destroy(stick.GetComponent<Collider>());
-                stick.transform.SetParent(controllerModels[index], false); stick.transform.localScale = Vector3.one * 0.016f;
-                stick.GetComponent<Renderer>().sharedMaterial = controllerMaterial; stickModels[index] = stick.transform;
+                BuildControllerModel(index);
                 var line = new GameObject("ROV pointer").AddComponent<LineRenderer>();
                 line.sharedMaterial = pilotUiMaterial; line.positionCount = 2; line.startWidth = 0.002f; line.endWidth = 0.001f;
                 line.startColor = line.endColor = new Color(0.3f, 0.9f, 1f, 0.85f); line.useWorldSpace = true;
@@ -281,7 +278,7 @@ namespace ROVVR
             bool visible = handTracked[index] && IsHeadReady();
             controllerModels[index].gameObject.SetActive(visible && pilot.showControllers);
             controllerRays[index].gameObject.SetActive(visible && (pilot.showPointers || pilotMenuOpen));
-            if (!visible) return;
+            if (!visible) { pointerFilterReady[index] = false; return; }
             device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 pos);
             device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rot);
             Transform origin = eye.parent;
@@ -289,14 +286,14 @@ namespace ROVVR
             Quaternion worldRot = origin == null ? rot : origin.rotation * rot;
             controllerModels[index].SetPositionAndRotation(worldPos, worldRot);
             device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stickAxis);
-            stickModels[index].localPosition = new Vector3(stickAxis.x * 0.012f, 0.055f, stickAxis.y * 0.012f);
+            stickModels[index].localPosition = new Vector3((index == 0 ? 0.012f : -0.012f) + stickAxis.x * 0.008f, 0.046f, 0.017f + stickAxis.y * 0.008f);
             // Prefer the runtime's aim pose; device pose is a fallback for older backends.
-            if (device.TryGetFeatureValue(new InputFeatureUsage<Vector3>("PointerPosition"), out Vector3 aimPos)
-                && device.TryGetFeatureValue(new InputFeatureUsage<Quaternion>("PointerRotation"), out Quaternion aimRot))
+            if (TryRuntimeAim(index, out Vector3 aimPos, out Quaternion aimRot))
             { worldPos = origin == null ? aimPos : origin.TransformPoint(aimPos); worldRot = origin == null ? aimRot : origin.rotation * aimRot; }
-            handRays[index] = new Ray(worldPos, worldRot * Vector3.forward);
+            Vector3 direction = AdjustPointer(index, worldRot);
+            handRays[index] = new Ray(worldPos, direction);
             controllerRays[index].SetPosition(0, worldPos);
-            controllerRays[index].SetPosition(1, worldPos + worldRot * Vector3.forward * 3f);
+            controllerRays[index].SetPosition(1, worldPos + direction * 3f);
         }
 
         public void SaveNamedProfile(string name)
@@ -343,9 +340,24 @@ namespace ROVVR
             }
             pilot.showControllers = GUILayout.Toggle(pilot.showControllers, "Show VR controllers and joystick deflection");
             pilot.showPointers = GUILayout.Toggle(pilot.showPointers, "Show pointers outside menu");
+            GUILayout.Label("Pointer comfort (only pointers; does not filter headset, video or servo)");
+            Slider("Pointer horizontal sensitivity", ref pilot.pointerYawSensitivity, 0.4f, 2.5f, "x", "F2");
+            Slider("Pointer vertical sensitivity", ref pilot.pointerPitchSensitivity, 0.4f, 2.5f, "x", "F2");
+            Slider("Aim pitch offset (+ up)", ref pilot.pointerPitchOffset, -45f, 45f, "°");
+            Slider("Aim yaw offset", ref pilot.pointerYawOffset, -30f, 30f, "°");
+            Slider("Pointer smoothing (0=off)", ref pilot.pointerSmoothingSeconds, 0f, 0.15f, " s", "F3");
+            if (Application.isPlaying)
+            {
+                if (GUILayout.Button("Center left pointer to gaze")) CenterPointer(0);
+                if (GUILayout.Button("Center right pointer to gaze")) CenterPointer(1);
+            }
+            pilot.windowDraggingEnabled = GUILayout.Toggle(pilot.windowDraggingEnabled, "Grab and move windows with left controller");
+            if (GUILayout.Button("Window grab: " + pilot.windowGrabButton)) pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3);
+            Slider("Window movement speed", ref pilot.windowMoveSpeed, 0.1f, 2f, " m/s", "F2");
             pilot.stickCalibrationEnabled = GUILayout.Toggle(pilot.stickCalibrationEnabled, "Left stick adjusts screen geometry (trigger/grip modifiers)");
-            Slider("VR menu distance", ref pilot.menuDistance, 0.8f, 2f, " m");
-            Slider("VR menu height", ref pilot.menuHeight, -0.6f, 0.6f, " m");
+            Slider("VR menu distance", ref pilot.menuDistance, 0.8f, 3f, " m");
+            Slider("VR menu height", ref pilot.menuHeight, -1.5f, 1.5f, " m");
+            Slider("VR menu left/right", ref pilot.menuSide, -2f, 2f, " m");
             if (Application.isPlaying && GUILayout.Button("Open / close VR menu (F3 default)")) TogglePilotMenu();
             GUILayout.Space(8);
             GUILayout.Label("Named profiles (complete configuration)");
@@ -388,6 +400,7 @@ namespace ROVVR
 
         private void DestroyPilotTools()
         {
+            DestroyPointerInteraction();
             if (zoomMesh != null && originalUv != null) zoomMesh.uv = originalUv;
             if (detailCanvas != null) Destroy(detailCanvas.gameObject);
             if (pilotMenuRoot != null) Destroy(pilotMenuRoot.gameObject);
