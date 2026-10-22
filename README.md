@@ -60,6 +60,11 @@ udpsrc port=5601 ! application/x-rtp,media=video,encoding-name=H264,clock-rate=9
 
 ## Kontroller og innstillinger
 
+Ny funksjonalitet etter v1: [digital zoom, detaljvindu, VR-meny, profiler og ombinding](docs/PILOT_TOOLS.md).
+I oppdatert prosjekt åpner **høyre spakklikk / F3** VR-menyen. Høyre spak
+opp/ned zoomer, og høyre avtrekker velger et punkt på videoflaten. Den
+opprinnelige v1-nedlastingen inneholder ikke disse nye funksjonene.
+
 | Kontroll | Handling |
 | --- | --- |
 | Høyre A | Hodefølging på/av. Av låser skjerm/HUD og holder siste kameratilt. |
@@ -86,6 +91,7 @@ En ny PC starter med `Assets/StreamingAssets/rov-video-view.defaults.json`. En e
 ## Dokumentasjon
 
 - [Oppsett og flytting til en ny PC](docs/SETUP.md)
+- [Zoom, VR-meny, navngitte profiler og knappebindinger](docs/PILOT_TOOLS.md)
 - [Bygging, pakking og publisering](docs/BUILD.md)
 - [Arkitektur og kildekodekart](docs/ARCHITECTURE.md)
 - [Feilsøking og testbegrensninger](docs/TROUBLESHOOTING.md)

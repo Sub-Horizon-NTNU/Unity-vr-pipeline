@@ -27,8 +27,46 @@ namespace ROVVR.Editor
             if (!File.Exists(Request) || EditorApplication.isCompiling || EditorApplication.isUpdating) return;
             string action = File.ReadAllText(Request).Trim();
             File.Delete(Request);
+            if (action == "build-pilot-preview") { EditorApplication.delayCall += BuildPilotPreview; return; }
             if (action != "build-v1") { Write(false, "Unknown release request.", null, 0, 0); return; }
             EditorApplication.delayCall += BuildV1;
+        }
+
+        [MenuItem("ROV/Release/Build Windows pilot tools preview")]
+        public static void BuildPilotPreview()
+        {
+            string folder = Path.GetFullPath(Path.Combine(Application.dataPath, "../../Builds/pilot-tools-preview"));
+            Directory.CreateDirectory(folder);
+            var result = new PreviewResult();
+            try
+            {
+                if (EditorApplication.isPlayingOrWillChangePlaymode) throw new InvalidOperationException("Stop Play before building.");
+                result.checks = RovPilotFeatureChecks.Run() + RovHeadTiltChecks.Run() + RovCommandRecoveryChecks.Run()
+                    + RovVideoViewChecks.Run() + RovCameraPoseChecks.Run() + RovManualViewChecks.Run()
+                    + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run();
+                // Meta XR 77's postprocessor copies this file without overwrite.
+                string bindings = Path.Combine(folder, "RuntimeActionBindings.json");
+                if (File.Exists(bindings)) File.Delete(bindings);
+                var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions {
+                    scenes = new[] {MainScene},
+                    locationPathName = Path.Combine(folder, "Unity-vr-pipeline-preview.exe"),
+                    target = BuildTarget.StandaloneWindows64, options = BuildOptions.Development
+                });
+                result.success = report.summary.result == BuildResult.Succeeded && report.summary.totalErrors == 0;
+                result.errors = (int)report.summary.totalErrors;
+                result.message = report.summary.result.ToString();
+                if (!result.success) Debug.LogError("[ROV pilot preview] " + result.message);
+                else Debug.Log("[ROV pilot preview] Built successfully; " + result.checks + " checks passed.");
+            }
+            catch (Exception error) { result.message = error.ToString(); Debug.LogException(error); }
+            finally { File.WriteAllText(Path.Combine(folder, "build-report.json"), JsonUtility.ToJson(result, true)); }
+        }
+
+        [Serializable] private sealed class PreviewResult
+        {
+            public bool success;
+            public int checks, errors;
+            public string message;
         }
 
         [MenuItem("ROV/Release/Build Windows v1")]
@@ -44,7 +82,7 @@ namespace ROVVR.Editor
                 if (Application.isBatchMode) EditorSceneManager.OpenScene(MainScene, OpenSceneMode.Single);
                 int checks = RovHeadTiltChecks.Run() + RovCommandRecoveryChecks.Run()
                     + RovVideoViewChecks.Run() + RovCameraPoseChecks.Run() + RovManualViewChecks.Run()
-                    + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run();
+                    + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run() + RovPilotFeatureChecks.Run();
                 if (!EditorSceneManager.SaveOpenScenes()) throw new IOException("Could not save open scenes.");
                 string root = Directory.GetParent(Application.dataPath).Parent.FullName;
                 string output = Path.Combine(root, "Builds", "v1", "Unity-vr-pipeline-v1.exe");

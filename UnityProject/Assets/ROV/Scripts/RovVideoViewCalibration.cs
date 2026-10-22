@@ -13,7 +13,7 @@ namespace ROVVR
     [DisallowMultipleComponent]
     [RequireComponent(typeof(CurvedVideoScreen))]
     [DefaultExecutionOrder(1000)]
-    public sealed class RovVideoViewCalibration : MonoBehaviour
+    public sealed partial class RovVideoViewCalibration : MonoBehaviour
     {
         public Transform eye;
         public RovHeadTiltController tilt;
@@ -72,9 +72,8 @@ namespace ROVVR
         private CurvedVideoScreen surface;
         private Quaternion heading = Quaternion.identity;
         private Vector3 centeredEye;
-        private bool centered, leftPrimary, leftSecondary;
-        private bool leftStickClick;
-        private bool rightPrimary, rightSecondary, appliedHeadFollowing = true, frozenPoseCaptured;
+        private bool centered;
+        private bool appliedHeadFollowing = true, frozenPoseCaptured;
         private Vector3 frozenPosition, frozenEyePosition;
         private Quaternion frozenRotation;
         private Vector3 frozenHudPosition;
@@ -114,8 +113,8 @@ namespace ROVVR
             overlay.view = this;
         }
 
-        private void OnEnable() { Application.onBeforeRender += UpdateViewPose; }
-        private void OnDisable() { Application.onBeforeRender -= UpdateViewPose; }
+        private void OnEnable() { Application.onBeforeRender += UpdateViewPose; Application.onBeforeRender += UpdateDetailPose; }
+        private void OnDisable() { Application.onBeforeRender -= UpdateViewPose; Application.onBeforeRender -= UpdateDetailPose; HidePilotTools(); }
 
         private void Update()
         {
@@ -139,7 +138,7 @@ namespace ROVVR
                 && OVRPlugin.hasVrFocus && OVRPlugin.hasInputFocus;
         }
 
-        private void LateUpdate() { UpdateViewPose(); }
+        private void LateUpdate() { UpdateViewPose(); UpdatePilotTools(); }
 
         [BeforeRenderOrder(100)]
         private void UpdateViewPose()
@@ -330,12 +329,15 @@ namespace ROVVR
             hudScale = hudScale, hudOpacity = hudOpacity, hudLayout = (hudLayout ?? new RovHudLayout()).Copy(),
             telemetrySmoothingSeconds = telemetrySmoothingSeconds,
             servoSmoothingSeconds = tilt == null ? 0.12f : tilt.ServoSmoothingSeconds,
-            servoMaximumSpeed = tilt == null ? 45f : tilt.ServoMaximumSpeed
+            servoMaximumSpeed = tilt == null ? 45f : tilt.ServoMaximumSpeed,
+            pilot = pilot.Copy()
         };
 
         public void ApplyProfile(RovVideoViewProfile profile)
         {
             profile.Validate();
+            pilot = profile.pilot.Copy();
+            ResetPilotInputEdges();
             horizontalFov = profile.horizontalFov;
             curveDegrees = profile.curveDegrees;
             distance = profile.distance;
@@ -410,19 +412,11 @@ namespace ROVVR
 
         private void ReadControls()
         {
+            ReadPilotButtons(IsHeadReady());
             var left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
-            left.TryGetFeatureValue(CommonUsages.primaryButton, out bool primary);
-            left.TryGetFeatureValue(CommonUsages.secondaryButton, out bool secondary);
-            left.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool leftClick);
             if (IsHeadReady())
             {
-                if (leftClick && !leftStickClick) ToggleHud();
-                if (primary && !leftPrimary)
-                {
-                    CenterViewAndTilt();
-                }
-                if (secondary && !leftSecondary) SaveCalibration(); // Y.
-                if (Time.realtimeSinceStartup >= nextAdjustment
+                if (!pilotMenuOpen && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
                     && left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick))
                 {
                     left.TryGetFeatureValue(CommonUsages.gripButton, out bool grip);
@@ -441,17 +435,9 @@ namespace ROVVR
                     if (stick.magnitude > 0.7f) nextAdjustment = Time.realtimeSinceStartup + 0.25f;
                 }
             }
-            leftPrimary = primary;
-            leftSecondary = secondary;
-            leftStickClick = leftClick;
-            var right = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
-            right.TryGetFeatureValue(CommonUsages.primaryButton, out bool a);
-            right.TryGetFeatureValue(CommonUsages.secondaryButton, out bool b);
-            ProcessRightButtons(a, b, IsHeadReady());
 #if ENABLE_INPUT_SYSTEM
             var keyboard = Keyboard.current;
             if (!RovHeadTiltFocus.DesktopShortcutsAllowed || keyboard == null) return;
-            if (keyboard.cKey.wasPressedThisFrame) CenterView();
             if (keyboard.f4Key.wasPressedThisFrame) showSettings = !showSettings;
             if (keyboard.f6Key.wasPressedThisFrame) Adjust(-2f, 0f);
             if (keyboard.f7Key.wasPressedThisFrame) Adjust(2f, 0f);
@@ -459,20 +445,14 @@ namespace ROVVR
             if (keyboard.f10Key.wasPressedThisFrame) Adjust(0f, 0.1f);
             if (keyboard.pageUpKey.wasPressedThisFrame) Adjust(0f, 0f, verticalPositionChange: 0.05f);
             if (keyboard.pageDownKey.wasPressedThisFrame) Adjust(0f, 0f, verticalPositionChange: -0.05f);
-            if (keyboard.f5Key.wasPressedThisFrame) SaveCalibration();
-            if (keyboard.f2Key.wasPressedThisFrame) LoadCalibration();
 #endif
         }
 
         private void ProcessRightButtons(bool a, bool b, bool ready)
         {
-            if (ready)
-            {
-                if (a && !rightPrimary) SetHeadFollowingEnabled(!headFollowingEnabled);
-                if (b && !rightSecondary) ToggleHud();
-            }
-            rightPrimary = a;
-            rightSecondary = b;
+            // Legacy regression entry point shares the live binding dispatcher.
+            ProcessPilotInput(RovPilotAction.Follow, a, ready, false, false, false);
+            ProcessPilotInput(RovPilotAction.Hud, b, ready, false, false, false);
         }
 
         private void ShowNotice(string text)
@@ -488,6 +468,7 @@ namespace ROVVR
                 GUILayout.BeginArea(new Rect(12, 200, 440, Mathf.Max(220f, Mathf.Min(620f, Screen.height - 212f))), GUI.skin.box);
                 settingsScroll = GUILayout.BeginScrollView(settingsScroll);
                 GUILayout.Label("ROV bildeinnstillinger — F4 viser/skjuler");
+                DrawPilotTools();
                 SetHeadFollowingEnabled(GUILayout.Toggle(headFollowingEnabled, "Hodefølging på (A) — av låser skjerm og kameratilt"));
                 bool wasAnchored = anchorToRovImu;
                 bool changed = false;
@@ -580,6 +561,6 @@ namespace ROVVR
             return true;
         }
 
-        private void OnDestroy() { Application.onBeforeRender -= UpdateViewPose; }
+        private void OnDestroy() { Application.onBeforeRender -= UpdateViewPose; Application.onBeforeRender -= UpdateDetailPose; DestroyPilotTools(); }
     }
 }

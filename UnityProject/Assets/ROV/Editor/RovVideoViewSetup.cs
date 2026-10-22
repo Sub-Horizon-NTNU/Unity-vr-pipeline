@@ -34,7 +34,8 @@ namespace ROVVR.Editor
                 else if (action == "trim") ApplyCompensationTrim();
                 else if (action == "save") UnityEngine.Object.FindObjectsByType<RovVideoViewCalibration>(FindObjectsSortMode.None).Single().SaveCalibration();
                 else if (action != "verify" && action != "runtime") throw new InvalidOperationException("Unknown view request.");
-                int checks = RovVideoViewChecks.Run() + RovCameraPoseChecks.Run() + RovManualViewChecks.Run() + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run();
+                int checks = RovVideoViewChecks.Run() + RovCameraPoseChecks.Run() + RovManualViewChecks.Run() + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run()
+                    + RovHeadTiltChecks.Run() + RovCommandRecoveryChecks.Run() + RovPilotFeatureChecks.Run();
                 WriteResult(true, checks, action == "install" ? "Installed; original scene saved in " + Backup : "Checks passed.");
             }
             catch (Exception error)
@@ -264,6 +265,7 @@ namespace ROVVR.Editor
             EditorGUILayout.HelpBox("Størrelse og krumming justeres separat. Endringer vises med en gang. Lagre JSON for å beholde dem etter Play.", MessageType.Info);
             Undo.RecordObject(view, "Adjust ROV video view");
             EditorGUI.BeginChangeCheck();
+            view.DrawPilotTools();
             view.SetHeadFollowingEnabled(EditorGUILayout.Toggle(new GUIContent("Hodefølging på (A)", "Av låser skjermens posisjon/vinkel og holder siste kameratilt. A slår på igjen."), view.headFollowingEnabled));
             view.horizontalFov = EditorGUILayout.Slider("Bildestørrelse (grader)", view.horizontalFov, 50f, 150f);
             view.curveDegrees = EditorGUILayout.Slider("Krumming (0 = flat)", view.curveDegrees, 0f, 150f);

@@ -1,5 +1,16 @@
 # Endringslogg
 
+## Etter v1 — under utvikling
+
+- Digital hovedzoom og valgfritt flyttbart detaljvindu som deler videoteksturen.
+- Valg av zoompunkt på den buede flaten med kontrollerpeker.
+- VR-meny med bilde-, HUD-, layout-, zoom-, kompass- og tiltinnstillinger.
+- Enkle kontrollermarkører med spakutslag og valgfrie pekerstråler.
+- Navngitte JSON-profiler og ombinding av pilotknapper/taster, lagret i profilen.
+- Brannmurskript for innkommende video fra én ROV-IP til én Windows-prosess.
+
+Den publiserte v1-builden og v1-taggen er beholdt uendret.
+
 ## v1 — 22. oktober 2026
 
 Første delbare Windows x64-build og komplett Unity-prosjekt for Sub Horizon.

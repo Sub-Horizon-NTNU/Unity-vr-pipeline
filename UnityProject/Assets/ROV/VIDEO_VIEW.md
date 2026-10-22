@@ -1,5 +1,10 @@
 # Quest-visning av ROV-video
 
+Ny funksjonalitet etter v1: se [Zoom, VR-meny, profiler og bindinger](../../../docs/PILOT_TOOLS.md).
+Høyre spakklikk/F3 åpner VR-menyen; høyre spak opp/ned zoomer, og høyre
+avtrekker velger et zoompunkt. F4/Editor-panelet har nå også navngitte profiler.
+Resten av denne siden beskriver grunnoppsettet fra v1.
+
 Den fungerende scenen er `Assets/GstUnityPlugin/Scenes/GstUnityPluginDemo01.unity`.
 Automatisk forstørrelse er fjernet etter headsettesten. Utgangspunktet er nå
 110 graders horisontal bildedekning, 45 graders krumming og 2 meters avstand.

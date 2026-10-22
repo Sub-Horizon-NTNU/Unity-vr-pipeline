@@ -104,6 +104,7 @@ namespace ROVVR
             get
             {
                 if (!Application.isFocused) return false;
+                if (RovPilotTextEntry.Active) return false;
 #if UNITY_EDITOR
                 // R/P typed into an Editor setting must not recenter/pause the
                 // live controller while Quest independently retains VR focus.

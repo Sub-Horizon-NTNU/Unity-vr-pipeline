@@ -29,6 +29,7 @@ namespace ROVVR
         public float telemetrySmoothingSeconds = 0.06f;
         public float servoSmoothingSeconds = 0.12f, servoMaximumSpeed = 45f;
         public RovHudLayout hudLayout = new RovHudLayout();
+        public RovPilotSettings pilot = new RovPilotSettings();
 
         public static string FilePath => Path.Combine(Application.persistentDataPath, "rov-video-view.json");
 
@@ -65,6 +66,8 @@ namespace ROVVR
             servoMaximumSpeed = Mathf.Clamp(servoMaximumSpeed, 5f, 90f);
             if (hudLayout == null) hudLayout = new RovHudLayout();
             hudLayout.Validate();
+            if (pilot == null) pilot = new RovPilotSettings();
+            pilot.Validate();
         }
 
         public void Save(string path)
