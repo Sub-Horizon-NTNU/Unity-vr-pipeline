@@ -10,10 +10,28 @@ Byggeren lagrer åpne scener, kjører prosjektets 158 kodekontroller og bygger
 hovedscenen til `Builds/v1/Unity-vr-pipeline-v1.exe`. Den bruker Windows x64,
 Mono, Direct3D 11, ordinær build uten development-flagg og versjon 1.0.0.
 Alle scener beholdes i kildeprosjektet; kun hovedscenen inngår i spilleren.
-Resultatet skrives til `UnityProject/Temp/rov-release-result.json`.
+Resultatet skrives til `Builds/v1/unity-build-report.json` og midlertidig til
+`UnityProject/Temp/rov-release-result.json` mens Editor er åpen.
 
 Windows Build Support må være installert i Unity Hub. Native GStreamer-DLL
 følger Unity-builden, men runtime distribueres ved pakkingen under.
+
+## Bygg native Windows-plugin på nytt
+
+Den vedlagte DLL-en er en Release/x64-build. Den gamle upstream-debug-DLL-en
+krever Visual Studio-debug-runtime og skal ikke brukes i en distribuert build.
+Med Visual Studio 2022 C++-verktøy, Windows SDK, CMake 3.29+ og GStreamer
+MSVC x64-utviklingsfiler (inkludert pkg-config i PATH):
+
+```powershell
+$env:PKG_CONFIG_PATH = 'C:\path\to\gstreamer\1.0\msvc_x86_64\lib\pkgconfig'
+cmake -S . -B Builds/native-release -G 'Visual Studio 17 2022' -A x64
+cmake --build Builds/native-release --config Release
+```
+
+Kopier DLL/lib/exp fra `Builds/native-release/Release` til
+`UnityProject/Assets/Plugins/GstUnityPlugin/Windows` med Play stoppet.
+Pluginimporten må ha Windows x86_64 aktivert; buildverktøyet sjekker dette.
 
 ## Pakk build og komplett kildeprosjekt
 

@@ -11,5 +11,6 @@ Første delbare Windows x64-build og komplett Unity-prosjekt for Sub Horizon.
 - A låser/følger skjerm og tilt; B viser/skjuler HUD; X sentrerer; Y lagrer.
 - Live innstillinger beholder servokontroll. Manglende ACK gir nytt forsøk.
 - Delt startprofil, buildmeny, Windows-pakking, Git LFS og oppsettdokumentasjon.
+- Windows-pluginen er bygget på nytt i Release/x64, med korrekt Win64-import og uten Visual Studio-debug-runtimeavhengighet.
 
 Android-kilde og binærer fra upstream er bevart, men v1 inneholder ingen ny APK.

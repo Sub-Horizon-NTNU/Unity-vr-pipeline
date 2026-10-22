@@ -8,7 +8,7 @@ $release = Join-Path $repo 'Releases\v1'
 $gst = [IO.Path]::GetFullPath($GStreamerRoot)
 if (!(Test-Path -LiteralPath (Join-Path $build 'Unity-vr-pipeline-v1.exe'))) { throw 'Build Windows v1 in Unity first.' }
 if (!(Test-Path -LiteralPath (Join-Path $gst 'bin\gstreamer-1.0-0.dll'))) { throw 'GStreamerRoot must point to an MSVC x64 runtime.' }
-$result = Get-Content -Raw -LiteralPath (Join-Path $repo 'UnityProject\Temp\rov-release-result.json') | ConvertFrom-Json
+$result = Get-Content -Raw -LiteralPath (Join-Path $build 'unity-build-report.json') | ConvertFrom-Json
 if (!$result.success) { throw 'The latest Unity release build did not succeed.' }
 New-Item -ItemType Directory -Path $release -Force | Out-Null
 $runtime = Join-Path $build 'GStreamer'
