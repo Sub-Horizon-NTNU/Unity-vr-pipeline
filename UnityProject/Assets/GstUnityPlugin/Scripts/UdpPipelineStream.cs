@@ -24,7 +24,7 @@ public class UdpStream : PipelineStreamController
     { "decodebin", "decodebin3", "amcviddec-omxqcomvideodecoderavc",
         "amcviddec-omxqcomvideodecoderavclowlatency"};
     private readonly string[] _encodingNames = { "H264", "H265" };
-    readonly string _srcCaps = "application/x-rtp,media=video,playback=96,clock-rate=90000,encoding-name=";
+    readonly string _srcCaps = "application/x-rtp,media=video,payload=96,clock-rate=90000,encoding-name=";
 
 
     [Header("UDP Stream Params")]

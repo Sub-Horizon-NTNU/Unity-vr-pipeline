@@ -1,0 +1,114 @@
+{
+    "schemaVersion": 1,
+    "horizontalFov": 110.9000015258789,
+    "curveDegrees": 115.80000305175781,
+    "distance": 1.8000001907348633,
+    "verticalPositionMeters": 0.0,
+    "verticalOffsetDegrees": -2.5,
+    "imageRollDegrees": 0.0,
+    "anchorToRovImu": true,
+    "cylindricalSurface": true,
+    "headFollowingEnabled": true,
+    "compensateRovPitch": true,
+    "pitchCompensationStrength": 0.8999999761581421,
+    "hudEnabled": true,
+    "hudShowAttitude": true,
+    "hudShowBattery": true,
+    "hudShowDepth": false,
+    "hudShowDiagnostics": false,
+    "hudAnchorMode": 0,
+    "hudShowCompass": true,
+    "compassRadius": 1.7000000476837159,
+    "compassDrop": 0.8999999761581421,
+    "hudScale": 1.2170000076293946,
+    "hudOpacity": 0.8539999723434448,
+    "telemetrySmoothingSeconds": 0.09650000184774399,
+    "servoSmoothingSeconds": 0.11999999731779099,
+    "servoMaximumSpeed": 45.0,
+    "hudLayout": {
+        "status": {
+            "position": {
+                "x": 0.0,
+                "y": 0.6499999761581421,
+                "z": 2.200000047683716
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        },
+        "battery": {
+            "position": {
+                "x": -0.800000011920929,
+                "y": -0.41999998688697817,
+                "z": 2.0
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        },
+        "depth": {
+            "position": {
+                "x": 0.800000011920929,
+                "y": 0.18000000715255738,
+                "z": 2.0
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        },
+        "cameraTilt": {
+            "position": {
+                "x": -0.800000011920929,
+                "y": 0.18000000715255738,
+                "z": 2.0
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        },
+        "attitude": {
+            "position": {
+                "x": 0.800000011920929,
+                "y": -0.41999998688697817,
+                "z": 2.0
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        },
+        "diagnostics": {
+            "position": {
+                "x": 0.0,
+                "y": -0.699999988079071,
+                "z": 2.200000047683716
+            },
+            "angleOffset": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "scale": 1.0,
+            "faceViewer": true
+        }
+    }
+}

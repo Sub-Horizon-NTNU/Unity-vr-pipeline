@@ -61,6 +61,9 @@ MeshRenderer:
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
   m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
@@ -153,7 +156,7 @@ MonoBehaviour:
   _ditherSize: 0.5
   _description: 
   _pipelineComponents:
-  - videotestsrc name=source
+  - uridecodebin uri=file:///C:/Users/luanl/Videos/testVideo.mp4
   - videoconvert
-  - video/x-raw,format=RGBA,width=1024,height=1024
+  - video/x-raw,format=RGBA
   - appsink name=videoSink

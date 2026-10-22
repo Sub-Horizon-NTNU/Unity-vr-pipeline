@@ -116,12 +116,20 @@ public abstract class StreamController : MonoBehaviour
             _texturesCreated = CreateStreamTextures();
     }
 
+    private int frameCounter = 0;
+    public int FramesReceived => frameCounter;
+    public float LastFrameReceivedAt { get; private set; } = float.NegativeInfinity;
+
     private void CheckNewFrame()
     {
         if (GstUnityController.Instance.NewFrame(_streamName))
-            UpdateTexture();
-    }
+        {
+            frameCounter++;
+            LastFrameReceivedAt = Time.realtimeSinceStartup;
 
+            UpdateTexture();
+        }
+    }
     public virtual void StartStream()
     {
         GstUnityController instance = GstUnityController.Instance;
@@ -188,11 +196,15 @@ public abstract class StreamController : MonoBehaviour
         _rend = GetComponent<Renderer>();
         _rend.material = _current;
         _current.SetTexture("_rgb", _rgbTex);
+        Debug.Log($"Material: {_rend.material.name}");
+        Debug.Log($"Shader: {_rend.material.shader.name}");
+        Debug.Log($"RGB texture assigned: {_rend.material.GetTexture("_rgb") != null}");
         _current.SetFloat("_fade", _fade);
         _current.SetFloat("_fadeScalar", _fadeScalar);
         _current.SetFloat("_ditherSize", _ditherSize);
         _rgbTex.Apply();
         success = instance.SetTexture(_rgbTex, 0, _streamName);
+        Debug.Log($"GSTREAMER TEXTURE: success={success}, size={_streamWidth}x{_streamHeight}, format={_streamFormat}");
         return success;
     }
 

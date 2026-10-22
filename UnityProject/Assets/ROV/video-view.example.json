@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "horizontalFov": 110.0,
+  "curveDegrees": 45.0,
+  "distance": 2.0,
+  "verticalPositionMeters": 0.0,
+  "verticalOffsetDegrees": 0.0,
+  "imageRollDegrees": 0.0,
+  "anchorToRovImu": true,
+  "cylindricalSurface": true,
+  "headFollowingEnabled": true,
+  "compensateRovPitch": true,
+  "pitchCompensationStrength": 1.0,
+  "hudEnabled": true,
+  "hudAnchorMode": 0,
+  "hudShowAttitude": true,
+  "hudShowBattery": true,
+  "hudShowDepth": true,
+  "hudShowDiagnostics": false,
+  "hudShowCompass": true,
+  "compassRadius": 1.7,
+  "compassDrop": 0.9,
+  "hudScale": 1.0,
+  "hudOpacity": 0.85,
+  "telemetrySmoothingSeconds": 0.06,
+  "servoSmoothingSeconds": 0.12,
+  "servoMaximumSpeed": 45,
+  "hudLayout": {
+    "status": {
+      "position": {
+        "x": 0,
+        "y": 0.65,
+        "z": 2.2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    },
+    "battery": {
+      "position": {
+        "x": -0.8,
+        "y": -0.42,
+        "z": 2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    },
+    "depth": {
+      "position": {
+        "x": 0.8,
+        "y": 0.18,
+        "z": 2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    },
+    "cameraTilt": {
+      "position": {
+        "x": -0.8,
+        "y": 0.18,
+        "z": 2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    },
+    "attitude": {
+      "position": {
+        "x": 0.8,
+        "y": -0.42,
+        "z": 2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    },
+    "diagnostics": {
+      "position": {
+        "x": 0,
+        "y": -0.7,
+        "z": 2.2
+      },
+      "angleOffset": {
+        "x": 0,
+        "y": 0,
+        "z": 0
+      },
+      "scale": 1,
+      "faceViewer": true
+    }
+  }
+}

@@ -65,3 +65,7 @@ Thumbs.db.meta
 
 # Bing key
 /Assets/Resources/MapSessionConfig.txt
+
+# Local IDE and editor-upgrade reports
+/.vsconfig
+/UpgradeLog.htm

@@ -1,0 +1,12 @@
+# Local builds and release archives are published as GitHub Release assets.
+/Builds/
+/Releases/
+/artifacts/
+/.vs/
+/.vscode/
+*.zip
+*.7z
+*.log
+.env
+.env.*
+!.env.example
