@@ -87,7 +87,8 @@ namespace ROVVR
         private void ApplyMenuPlacement()
         {
             if (pilotMenuRoot != null) pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition
-                + menuAnchorRotation * new Vector3(pilot.menuSide, pilot.menuHeight, pilot.menuDistance), menuAnchorRotation);
+                + menuAnchorRotation * new Vector3(pilot.menuSide, pilot.menuHeight, pilot.menuDistance),
+                menuAnchorRotation * Quaternion.Euler(pilot.menuAngles.x, pilot.menuAngles.y, 0f));
         }
 
         private PilotMenuItem MenuButton(Transform parent, string title, float x, float y, float width, float height, Action onClick, bool page = true)
@@ -230,6 +231,8 @@ namespace ROVVR
                     MenuToggle("Grab windows", () => pilot.windowDraggingEnabled, v => pilot.windowDraggingEnabled = v);
                     MenuAction(() => "Grab button: " + pilot.windowGrabButton, () => pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3));
                     MenuSlider("Stick move speed", () => pilot.windowMoveSpeed, v => pilot.windowMoveSpeed = v, 0.1f, 2f, " m/s");
+                    MenuSlider("Stick rotation speed", () => pilot.windowRotateSpeed, v => pilot.windowRotateSpeed = v, 10f, 120f, " deg/s");
+                    MenuToggle("Also follow hand ray", () => pilot.windowFollowHand, v => pilot.windowFollowHand = v);
                     MenuSlider("Menu left / right", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
                     MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
                     MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
@@ -251,7 +254,7 @@ namespace ROVVR
             if (Time.unscaledTime >= menuTextAt)
             {
                 RefreshMenuText();
-                string status = WindowDragActive ? "MOVING WINDOW / left stick moves / grip + stick = depth / release to place"
+                string status = WindowDragActive ? "HELD / left stick: move / grip + left stick: distance\nRight stick: pitch/yaw / release left trigger to place"
                     : string.IsNullOrEmpty(pilotMessage) ? "Right trigger: select / Left trigger: grab window + left stick.\nChanges are live; save JSON/profile to keep placement." : pilotMessage;
                 if (pilotMenuStatus.text != status) pilotMenuStatus.text = status;
                 menuTextAt = Time.unscaledTime + 0.1f;

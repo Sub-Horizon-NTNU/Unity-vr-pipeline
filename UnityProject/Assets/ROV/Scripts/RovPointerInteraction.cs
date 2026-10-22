@@ -45,6 +45,8 @@ namespace ROVVR
         private bool grabWasHeld, pointerFocusLastFrame;
         private Plane dragPlane;
         private Vector3 previousDragPoint;
+        private Vector2 grabbedPoint;
+        private Quaternion dragAxes = Quaternion.identity;
         private Vector3 menuAnchorPosition;
         private Quaternion menuAnchorRotation = Quaternion.identity;
         private readonly Quaternion[] pointerReferences = new Quaternion[2], pointerTargets = new Quaternion[2];
@@ -52,7 +54,8 @@ namespace ROVVR
         private readonly bool[] pointerFilterReady = new bool[2];
         private readonly Quaternion[] rawAimRotations = new Quaternion[2];
         private readonly Vector3[] smoothAimDirections = new Vector3[2];
-        private readonly LineRenderer[] pointerReticles = new LineRenderer[2], pointerDots = new LineRenderer[2];
+        private readonly RectTransform[] pointerReticles = new RectTransform[2], windowOutlines = new RectTransform[2];
+        private readonly RovPointerVisualGraphic[] cursorGraphics = new RovPointerVisualGraphic[2], outlineGraphics = new RovPointerVisualGraphic[2];
         private Material pointerMaterial;
         private bool WindowDragActive => draggedWindow != DragWindow.None;
 
@@ -66,8 +69,13 @@ namespace ROVVR
                 : pilot.windowGrabButton == RovWindowGrabButton.LeftGrip ? CommonUsages.gripButton : CommonUsages.primary2DAxisClick;
             left.TryGetFeatureValue(grabUsage, out bool held);
             left.TryGetFeatureValue(CommonUsages.gripButton, out bool depthModifier);
+            var right = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
+            right.TryGetFeatureValue(CommonUsages.gripButton, out bool rightGrip);
             left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick);
-            ProcessWindowDrag(held, handTracked[0] && IsHeadReady(), depthModifier, stick, handRays[0], Mathf.Min(Time.unscaledDeltaTime, 0.05f));
+            float delta = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+            ProcessWindowDrag(held, handTracked[0] && IsHeadReady(),
+                (depthModifier && pilot.windowGrabButton != RovWindowGrabButton.LeftGrip) || (handTracked[1] && rightGrip), stick, handRays[0], delta);
+            if (handTracked[1] && right.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 rotation)) ProcessWindowRotation(rotation, delta);
         }
 
         private bool TryPointedWindow(int hand, out DragWindow window, out Vector3 hit, out float distance)
@@ -94,20 +102,28 @@ namespace ROVVR
                 else if (pilot.detailEnabled && detailCanvas != null && RovPointerMath.Hit((RectTransform)detailCanvas.transform, ray, out _, out _))
                 { target = (RectTransform)detailCanvas.transform; draggedWindow = DragWindow.Detail; }
                 if (target == null) return;
-                dragPlane = new Plane(target.forward, target.position);
-                dragPlane.Raycast(ray, out float distance); previousDragPoint = ray.GetPoint(distance);
+                RovPointerMath.Hit(target, ray, out Vector3 hit, out _);
+                Vector3 local = target.InverseTransformPoint(hit);
+                grabbedPoint = new Vector2(Mathf.InverseLerp(target.rect.xMin, target.rect.xMax, local.x), Mathf.InverseLerp(target.rect.yMin, target.rect.yMax, local.y));
+                Vector3 levelForward = Vector3.ProjectOnPlane(eye.forward, Vector3.up);
+                dragAxes = levelForward.sqrMagnitude < 0.001f ? Quaternion.identity : Quaternion.LookRotation(levelForward, Vector3.up);
+                dragPlane = new Plane(dragAxes * Vector3.forward, hit);
+                previousDragPoint = hit;
             }
             if (!WindowDragActive) return;
             RectTransform active = draggedWindow == DragWindow.Menu ? pilotMenuRoot : detailCanvas == null ? null : (RectTransform)detailCanvas.transform;
             if (active == null || !active.gameObject.activeInHierarchy) { draggedWindow = DragWindow.None; return; }
-            if (!dragPlane.Raycast(ray, out float enter) || enter < 0f || enter > 8f) return;
-            Vector3 point = ray.GetPoint(enter);
+            Vector3 handDelta = Vector3.zero;
+            if (dragPlane.Raycast(ray, out float enter) && enter >= 0f && enter <= 8f)
+            {
+                Vector3 point = ray.GetPoint(enter);
+                if (pilot.windowFollowHand) handDelta = point - previousDragPoint;
+                previousDragPoint = point;
+            }
             Vector2 axis = RovPointerMath.Stick(stick);
-            bool depth = depthModifier && pilot.windowGrabButton != RovWindowGrabButton.LeftGrip;
-            Vector3 stickDelta = (active.right * axis.x + (depth ? active.forward : active.up) * axis.y)
+            Vector3 stickDelta = (dragAxes * Vector3.right * axis.x + (depthModifier ? dragAxes * Vector3.forward : Vector3.up) * axis.y)
                 * pilot.windowMoveSpeed * delta;
-            Vector3 desired = active.position + point - previousDragPoint + stickDelta;
-            previousDragPoint = point;
+            Vector3 desired = active.position + handDelta + stickDelta;
             if (draggedWindow == DragWindow.Menu)
             {
                 Vector3 p = Quaternion.Inverse(menuAnchorRotation) * (desired - menuAnchorPosition);
@@ -118,6 +134,24 @@ namespace ROVVR
             {
                 Vector3 p = Quaternion.Inverse(PilotHudRotation) * (desired - PilotHudPosition);
                 pilot.detailPosition = new Vector3(Mathf.Clamp(p.x, -3f, 3f), Mathf.Clamp(p.y, -2f, 2f), Mathf.Clamp(p.z, 0.6f, 4f));
+                UpdateDetailPose();
+            }
+        }
+
+        private void ProcessWindowRotation(Vector2 stick, float delta)
+        {
+            if (!WindowDragActive) return;
+            Vector2 axis = RovPointerMath.Stick(stick) * pilot.windowRotateSpeed * delta;
+            if (axis == Vector2.zero) return;
+            if (draggedWindow == DragWindow.Menu)
+            {
+                pilot.menuAngles = new Vector2(Mathf.Clamp(pilot.menuAngles.x - axis.y, -60f, 60f), Mathf.Clamp(pilot.menuAngles.y + axis.x, -80f, 80f));
+                ApplyMenuPlacement();
+            }
+            else
+            {
+                pilot.detailAngles.x = Mathf.Clamp(pilot.detailAngles.x - axis.y, -60f, 60f);
+                pilot.detailAngles.y = Mathf.Clamp(pilot.detailAngles.y + axis.x, -80f, 80f);
                 UpdateDetailPose();
             }
         }
@@ -181,61 +215,12 @@ namespace ROVVR
 
         private LineRenderer PointerLine(string name, Transform parent, int count, float width, Color color)
         {
-            if (pointerMaterial == null) pointerMaterial = new Material(Resources.Load<Shader>("RovHudOverlay")) { renderQueue = 4090 };
+            if (pointerMaterial == null) pointerMaterial = new Material(Resources.Load<Shader>("RovHudOverlay")) { renderQueue = 4990 };
             var line = new GameObject(name).AddComponent<LineRenderer>();
             if (parent != null) line.transform.SetParent(parent, false);
             line.sharedMaterial = pointerMaterial; line.useWorldSpace = false; line.positionCount = count;
             line.startWidth = line.endWidth = width; line.startColor = line.endColor = color;
             return line;
-        }
-
-        private void UpdatePointerFeedback()
-        {
-            for (int i = 0; i < 2; i++)
-            {
-                if (pointerReticles[i] == null)
-                {
-                    pointerReticles[i] = PointerLine("ROV pointer ring", null, 33, 0.0018f, Color.white);
-                    pointerReticles[i].sortingOrder = 1000;
-                    for (int j = 0; j <= 32; j++)
-                    {
-                        float a = j * Mathf.PI * 2f / 32f;
-                        pointerReticles[i].SetPosition(j, new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * 0.009f);
-                    }
-                    pointerDots[i] = PointerLine("ROV pointer dot", pointerReticles[i].transform, 2, 0.004f, Color.cyan);
-                    pointerDots[i].sortingOrder = 1001;
-                    pointerDots[i].SetPosition(0, Vector3.zero); pointerDots[i].SetPosition(1, new Vector3(0.0001f, 0f, 0f));
-                }
-                bool valid = handTracked[i] && IsHeadReady() && TryPointedWindow(i, out _, out _, out _);
-                bool grabbed = i == 0 && WindowDragActive;
-                if (grabbed && handTracked[i] && IsHeadReady()) valid = true;
-                pointerReticles[i].gameObject.SetActive(valid);
-                if (!valid) continue;
-                TryPointedWindow(i, out DragWindow window, out Vector3 hit, out float distance);
-                if (grabbed)
-                {
-                    window = draggedWindow;
-                    var heldSurface = window == DragWindow.Menu ? pilotMenuRoot : (RectTransform)detailCanvas.transform;
-                    var heldPlane = new Plane(heldSurface.forward, heldSurface.position);
-                    if (heldPlane.Raycast(handRays[i], out float enter) && enter >= 0f)
-                    {
-                        Vector3 local = heldSurface.InverseTransformPoint(handRays[i].GetPoint(enter));
-                        local.x = Mathf.Clamp(local.x, heldSurface.rect.xMin, heldSurface.rect.xMax);
-                        local.y = Mathf.Clamp(local.y, heldSurface.rect.yMin, heldSurface.rect.yMax); local.z = 0f;
-                        hit = heldSurface.TransformPoint(local); distance = Vector3.Distance(handRays[i].origin, hit);
-                    }
-                    else { hit = heldSurface.position; distance = Vector3.Distance(handRays[i].origin, hit); }
-                }
-                Color color = grabbed ? new Color(1f, 0.7f, 0.2f) : i == 0 ? new Color(0.55f, 0.9f, 1f) : Color.white;
-                var surface = window == DragWindow.Menu ? pilotMenuRoot : (RectTransform)detailCanvas.transform;
-                pointerReticles[i].transform.SetPositionAndRotation(hit - surface.forward * 0.003f, surface.rotation);
-                pointerReticles[i].transform.localScale = Vector3.one * Mathf.Clamp(distance, 0.7f, 3f);
-                pointerReticles[i].startColor = pointerReticles[i].endColor = color;
-                pointerDots[i].startColor = pointerDots[i].endColor = grabbed ? color : new Color(0.2f, 1f, 0.9f);
-                controllerRays[i].SetPosition(1, hit);
-            }
-            if (pilotMenuTitle != null) pilotMenuTitle.color = draggedWindow == DragWindow.Menu ? new Color(1f, 0.75f, 0.3f) : Color.white;
-            if (detailCaption != null) detailCaption.color = draggedWindow == DragWindow.Detail ? new Color(1f, 0.75f, 0.3f) : Color.white;
         }
 
         private void ControllerPart(Transform parent, string name, PrimitiveType shape, Vector3 position, Vector3 scale, Quaternion rotation, Color color)
@@ -283,6 +268,7 @@ namespace ROVVR
         private void DestroyPointerInteraction()
         {
             for (int i = 0; i < 2; i++) if (pointerReticles[i] != null) Destroy(pointerReticles[i].gameObject);
+            for (int i = 0; i < 2; i++) if (windowOutlines[i] != null) Destroy(windowOutlines[i].gameObject);
             if (pointerMaterial != null) Destroy(pointerMaterial);
         }
     }

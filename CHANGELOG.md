@@ -2,6 +2,9 @@
 
 ## Etter v1 — under utvikling
 
+- Stabil vindusflytting med venstre spak; høyre spak justerer pitch/yaw rundt vinduets sentrum.
+- Håndfølging er valgfri; grip + venstre spak justerer avstand. Hastighet og vinkler lagres i profiler.
+- Peker med siktekors på eget UI-lag, stråle som stopper på markøren og tydelig ramme rundt valgt vindu.
 - Tydelig pekerpunkt på meny/detaljvideo og markering når et vindu gripes.
 - Venstre avtrekker griper vinduer; venstre spak flytter, grip + spak endrer dybde.
 - Touch-lignende kontrollermarkører, OpenXR-siktepose, justerbar pekerfølsomhet og siktevinkel.

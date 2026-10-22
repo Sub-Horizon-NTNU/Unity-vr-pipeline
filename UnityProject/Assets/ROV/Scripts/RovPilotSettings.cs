@@ -41,6 +41,9 @@ namespace ROVVR
         public bool windowDraggingEnabled = true;
         public RovWindowGrabButton windowGrabButton = RovWindowGrabButton.LeftTrigger;
         public float windowMoveSpeed = 0.6f;
+        public float windowRotateSpeed = 45f;
+        public bool windowFollowHand;
+        public Vector2 menuAngles;
         public float pointerYawSensitivity = 1.2f, pointerPitchSensitivity = 0.8f;
         public float pointerPitchOffset, pointerYawOffset;
         public float pointerSmoothingSeconds = 0.025f;
@@ -65,7 +68,7 @@ namespace ROVVR
         {
             foreach (float f in new[] {mainZoom, detailZoom, zoomCenter.x, zoomCenter.y, detailPosition.x,
                 detailPosition.y, detailPosition.z, detailWidth, detailAngles.x, detailAngles.y, detailAngles.z, menuDistance, menuHeight,
-                menuSide, windowMoveSpeed, pointerYawSensitivity, pointerPitchSensitivity, pointerPitchOffset, pointerYawOffset, pointerSmoothingSeconds})
+                menuSide, windowMoveSpeed, windowRotateSpeed, menuAngles.x, menuAngles.y, pointerYawSensitivity, pointerPitchSensitivity, pointerPitchOffset, pointerYawOffset, pointerSmoothingSeconds})
                 if (!RovCameraPoseMath.Finite(f)) throw new ArgumentException("Pilot settings contain a non-finite number.");
             mainZoom = Mathf.Clamp(mainZoom, 1f, 8f); detailZoom = Mathf.Clamp(detailZoom, 1f, 8f);
             zoomCenter = new Vector2(Mathf.Clamp01(zoomCenter.x), Mathf.Clamp01(zoomCenter.y));
@@ -75,6 +78,8 @@ namespace ROVVR
             menuDistance = Mathf.Clamp(menuDistance, 0.8f, 3f); menuHeight = Mathf.Clamp(menuHeight, -1.5f, 1.5f);
             menuSide = Mathf.Clamp(menuSide, -2f, 2f);
             windowMoveSpeed = Mathf.Clamp(windowMoveSpeed, 0.1f, 2f);
+            windowRotateSpeed = Mathf.Clamp(windowRotateSpeed, 10f, 120f);
+            menuAngles = new Vector2(Mathf.Clamp(menuAngles.x, -60f, 60f), Mathf.Clamp(menuAngles.y, -80f, 80f));
             pointerYawSensitivity = Mathf.Clamp(pointerYawSensitivity, 0.4f, 2.5f);
             pointerPitchSensitivity = Mathf.Clamp(pointerPitchSensitivity, 0.4f, 2.5f);
             pointerPitchOffset = Mathf.Clamp(pointerPitchOffset, -45f, 45f);

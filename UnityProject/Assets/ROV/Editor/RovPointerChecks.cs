@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace ROVVR.Editor
 {
@@ -82,11 +83,54 @@ namespace ROVVR.Editor
                 Drag(view, true, true, false, Vector2.zero, detailRay);
                 Near(view.pilot.detailPosition.x, 0.8f); Near(view.pilot.detailPosition.y, 0.1f); Near(view.pilot.detailPosition.z, 2f); checks++;
                 Drag(view, true, true, false, Vector2.right, detailRay);
-                Near(view.pilot.detailPosition.x, 0.83f); Near(view.pilot.detailPosition.z, 2f); checks++;
+                Vector3 expected = new Vector3(0.8f, 0.1f, 2f) + Quaternion.Inverse(view.PilotHudRotation) * (Vector3.right * 0.03f);
+                Expect(Vector3.Distance(view.pilot.detailPosition, expected) < 0.001f, "Movement axes must be viewer-level, independent of window yaw"); checks++;
+                Set(view, "pilotMenuOpen", true); Drag(view, false, true, false, Vector2.zero, ray);
+                Drag(view, true, true, false, Vector2.zero, ray);
+                Vector3 beforeRotation = root.position;
+                typeof(RovVideoViewCalibration).GetMethod("ProcessWindowRotation", Fields).Invoke(view, new object[] {Vector2.right, 0.05f});
+                Near(view.pilot.menuAngles.y, 2.25f); Expect(Vector3.Distance(root.position, beforeRotation) < 0.001f, "Rotation must keep window center fixed"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("ProcessWindowRotation", Fields).Invoke(view, new object[] {Vector2.up, 0.05f});
+                Near(view.pilot.menuAngles.x, -2.25f); checks++;
+                Drag(view, true, true, false, Vector2.zero, new Ray(eye.transform.position, Vector3.down));
+                Expect(Vector3.Distance(root.position, beforeRotation) < 0.001f, "Hand pitch/yaw must not move a stick-controlled window"); checks++;
+                Drag(view, true, true, false, Vector2.up, ray);
+                Near(root.position.y - beforeRotation.y, 0.03f); Near(root.position.x, beforeRotation.x); checks++;
+                var rotationProfile = RovVideoViewProfile.Parse(JsonUtility.ToJson(view.GetProfile()));
+                Near(rotationProfile.pilot.menuAngles.x, -2.25f); Near(rotationProfile.pilot.menuAngles.y, 2.25f);
+                Expect(!rotationProfile.pilot.windowFollowHand, "Stable sticks-only mode must persist"); checks++;
+
+                // The visible endpoint must be UI geometry above the window,
+                // rather than a 3D line that can disappear in its canvas.
+                var beam = new GameObject("Cursor test beam").AddComponent<LineRenderer>(); beam.positionCount = 2;
+                ((LineRenderer[])Get(view, "controllerRays"))[0] = beam;
+                typeof(RovVideoViewCalibration).GetMethod("DrawPointerCursor", Fields).Invoke(view, new object[] {0, root, root.position, true});
+                var cursor = ((RectTransform[])Get(view, "pointerReticles"))[0];
+                var cursorCanvas = cursor.GetComponent<Canvas>();
+                Expect((cursorCanvas.isRootCanvas || cursorCanvas.overrideSorting) && cursorCanvas.sortingOrder > 250,
+                    "Cursor must draw above menu canvas"); checks++;
+                Expect(Vector3.Distance(beam.GetPosition(1), cursor.position) < 0.0001f, "Beam must terminate at visible cursor"); checks++;
+                var cursorGraphic = cursor.GetComponent<RovPointerVisualGraphic>(); cursorGraphic.Rebuild(CanvasUpdate.PreRender);
+                var cursorMesh = cursorGraphic.canvasRenderer.GetMesh();
+                Expect(cursorMesh.vertexCount > 0, "Cursor must contain visible UI geometry"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("DrawWindowOutline", Fields).Invoke(view, new object[] {0, root, true, true});
+                var frame = ((RectTransform[])Get(view, "windowOutlines"))[0];
+                Expect(frame.gameObject.activeSelf && frame.GetComponentInChildren<Text>().text.Contains("MENU / HELD"), "Held window must be visibly identified"); checks++;
             }
             finally
             {
-                if (view != null) { Set(view, "pilotMenuRoot", null); Set(view, "detailCanvas", null); }
+                if (view != null)
+                {
+                    Set(view, "pilotMenuRoot", null); Set(view, "detailCanvas", null);
+                    foreach (string field in new[] {"pointerReticles", "windowOutlines"})
+                    {
+                        var roots = (RectTransform[])Get(view, field);
+                        for (int i = 0; i < roots.Length; i++) { if (roots[i] != null) UnityEngine.Object.DestroyImmediate(roots[i].gameObject); roots[i] = null; }
+                    }
+                    var beams = (LineRenderer[])Get(view, "controllerRays");
+                    for (int i = 0; i < beams.Length; i++) { if (beams[i] != null) UnityEngine.Object.DestroyImmediate(beams[i].gameObject); beams[i] = null; }
+                    var material = Get(view, "pointerMaterial") as Material; if (material != null) UnityEngine.Object.DestroyImmediate(material); Set(view, "pointerMaterial", null);
+                }
                 UnityEngine.Object.DestroyImmediate(go); UnityEngine.Object.DestroyImmediate(window); UnityEngine.Object.DestroyImmediate(detail); UnityEngine.Object.DestroyImmediate(eye);
             }
             return checks;

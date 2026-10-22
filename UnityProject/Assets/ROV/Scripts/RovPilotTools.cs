@@ -91,8 +91,9 @@ namespace ROVVR
 #endif
                 bool repeat = controlsLive && held && (binding.action == RovPilotAction.ZoomIn || binding.action == RovPilotAction.ZoomOut)
                     && Time.unscaledTime >= nextZoomStep;
-                bool suppress = ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
-                    || (GrabConsumesPilotInput(binding.button) && binding.action != RovPilotAction.Menu);
+                bool suppress = WindowDragActive || ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
+                    || (GrabConsumesPilotInput(binding.button) && binding.action != RovPilotAction.Menu)
+                    || (binding.action == RovPilotAction.AimZoom && TryPointedWindow(1, out _, out _, out _));
                 if (ProcessPilotInput(binding.action, held, controlsLive, key, repeat, suppress))
                 {
                     if (binding.action == RovPilotAction.Load) { pilotHadFocus = ready; return; }
@@ -271,7 +272,7 @@ namespace ROVVR
             {
                 BuildControllerModel(index);
                 var line = new GameObject("ROV pointer").AddComponent<LineRenderer>();
-                line.sharedMaterial = pilotUiMaterial; line.positionCount = 2; line.startWidth = 0.002f; line.endWidth = 0.001f;
+                line.sharedMaterial = pointerMaterial; line.sortingOrder = 15000; line.positionCount = 2; line.startWidth = 0.0025f; line.endWidth = 0.0015f;
                 line.startColor = line.endColor = new Color(0.3f, 0.9f, 1f, 0.85f); line.useWorldSpace = true;
                 controllerRays[index] = line;
             }
@@ -354,6 +355,10 @@ namespace ROVVR
             pilot.windowDraggingEnabled = GUILayout.Toggle(pilot.windowDraggingEnabled, "Grab and move windows with left controller");
             if (GUILayout.Button("Window grab: " + pilot.windowGrabButton)) pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3);
             Slider("Window movement speed", ref pilot.windowMoveSpeed, 0.1f, 2f, " m/s", "F2");
+            Slider("Window rotation speed", ref pilot.windowRotateSpeed, 10f, 120f, " deg/s", "F1");
+            pilot.windowFollowHand = GUILayout.Toggle(pilot.windowFollowHand, "Also follow hand ray while holding (off = stable sticks only)");
+            Slider("VR menu pitch", ref pilot.menuAngles.x, -60f, 60f, " deg");
+            Slider("VR menu yaw", ref pilot.menuAngles.y, -80f, 80f, " deg");
             pilot.stickCalibrationEnabled = GUILayout.Toggle(pilot.stickCalibrationEnabled, "Left stick adjusts screen geometry (trigger/grip modifiers)");
             Slider("VR menu distance", ref pilot.menuDistance, 0.8f, 3f, " m");
             Slider("VR menu height", ref pilot.menuHeight, -1.5f, 1.5f, " m");

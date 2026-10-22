@@ -72,22 +72,26 @@ Systemknapper som Quest/Meta eies av runtime og kan ikke ombindes av programmet.
 
 ## Peker og flytting av vinduer
 
-En lys ring med cyan senter vises der pekeren treffer menyen eller
-detaljvinduet, også over tom menybakgrunn. Ringen og vinduets tittel blir
-gule når venstre kontroller holder vinduet. Høyre peker markerer feltet
-under seg. Når spaken flytter vinduet bort fra strålen, blir gripeindikatoren
-holdt på nærmeste vinduskant.
+Et hvitt siktekors med mørk bakplate og cyan ring vises der pekeren treffer
+menyen eller detaljvinduet. Markøren tegnes foran vinduet, og strålen stopper
+ved markøren. Hele vinduet får en cyan ramme ved treff og en gullfarget ramme
+med «HELD» når det holdes. Under flytting følger markøren det opprinnelige
+gripepunktet, også når vinduet flyttes bort fra håndens sikteretning.
 
 **Venstre avtrekker foran griper vinduer; høyre avtrekker velger.**
 Pek på menyen eller detaljvinduet, trykk og hold venstre avtrekker, og flytt
-kontrolleren eller bruk venstre spak. Spak høyre/venstre flytter sideveis;
-opp/ned flytter i høyden. Hold i tillegg venstre grip-knapp for å bruke
-spak opp/ned til avstand. Slipp avtrekkeren for å plassere vinduet.
+venstre spak. Spak høyre/venstre flytter sideveis; opp/ned flytter i høyden.
+Hold i tillegg venstre eller høyre grip-knapp for å bruke venstre spak
+opp/ned til avstand. Høyre spak justerer yaw (sideveis) og pitch (opp/ned),
+uten å flytte vinduets sentrum. Slipp avtrekkeren for å plassere vinduet.
 Vinduet hopper ikke til pekerens senter når du griper det.
 
 Gripeknappen kan endres til venstre grip eller venstre spakklikk. Ved grip
-som gripeknapp brukes spaken til side/høyde uten avstandsmodifikator.
-Flyttehastighet og funksjonen av/på finnes i Move windows og PC-panelet.
+som gripeknapp brukes høyre grip som avstandsmodifikator.
+Flyttehastighet, rotasjonshastighet og funksjonen av/på finnes i Move windows
+og PC-panelet. Håndens pitch/yaw flytter som standard ikke vinduet etter
+gripepunktet er valgt. Valget «Window follows hand ray» aktiverer dette igjen.
+Flytteaksene holdes vannrette, uavhengig av vinduets helning.
 Under flytting er venstre spaks bildekalibrering og øvrige pilotvalg sperret.
 Ved tapt sporing eller VR-fokus slippes vinduet; slipp og trykk gripeknappen
 igjen etter at sporingen er tilbake.
@@ -95,7 +99,7 @@ igjen etter at sporingen er tilbake.
 Detaljvinduet følger HUD-ens koordinatsystem som før. Menyen står i ro i
 rommet mens den er åpen. Dens side-/høyde-/avstandsverdier brukes relativt
 til synsretningen neste gang den åpnes. **Lagre JSON eller en profil** for
-å beholde plasseringen mellom oppstarter.
+å beholde plasseringen og vinklene mellom oppstarter.
 
 Kontrollerne har en enkel Touch-lignende markør med grep, topp, knapper,
 spak og sporingsring. Dette er en illustrasjon, ikke Metas offisielle modell.
