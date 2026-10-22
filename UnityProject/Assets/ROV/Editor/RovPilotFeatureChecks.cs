@@ -88,6 +88,12 @@ namespace ROVVR.Editor
                 UnityEngine.Object.DestroyImmediate(go); if (mesh != null) UnityEngine.Object.DestroyImmediate(mesh);
                 foreach (string path in new[] {profilePath, profilePath + ".bak", profilePath + ".tmp"}) if (File.Exists(path)) File.Delete(path);
             }
+            var recordingProfile = new RovVideoViewProfile();
+            recordingProfile.pilot.recordFullHd = true; recordingProfile.pilot.recordPresentation = false; recordingProfile.pilot.recordFlipVertical = false;
+            recordingProfile.pilot.menuAngles = new Vector2(15, -35);
+            var recordingCopy = RovVideoViewProfile.Parse(JsonUtility.ToJson(recordingProfile));
+            Expect(recordingCopy.pilot.recordFullHd && !recordingCopy.pilot.recordPresentation && !recordingCopy.pilot.recordFlipVertical, "Recording choices must survive profile roundtrip"); checks++;
+            Near(recordingCopy.pilot.menuAngles.x, 15); Near(recordingCopy.pilot.menuAngles.y, -35); checks++;
             return checks + RovPointerChecks.Run();
         }
         private static void Invoke(object target, string name) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);

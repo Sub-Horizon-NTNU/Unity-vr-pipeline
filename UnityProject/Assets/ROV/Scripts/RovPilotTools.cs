@@ -154,6 +154,7 @@ namespace ROVVR
             if (pilotMenuOpen) ApplyMenuPlacement();
             UpdatePilotMenu();
             UpdatePointerFeedback();
+            UpdateRecordingFeedback();
         }
 
         private void EnsurePilotMaterials()
@@ -324,6 +325,7 @@ namespace ROVVR
             if (!desktopToolsExpanded) return;
             if (pilot == null) pilot = new RovPilotSettings();
             GUILayout.Label("Digital zoom / same source video, no extra detail");
+            DrawRecordingControls();
             Slider("Main video zoom", ref pilot.mainZoom, 1f, 8f, "x");
             Slider("Target left/right", ref pilot.zoomCenter.x, 0f, 1f, "", "F2");
             Slider("Target bottom/top", ref pilot.zoomCenter.y, 0f, 1f, "", "F2");
@@ -405,6 +407,8 @@ namespace ROVVR
 
         private void DestroyPilotTools()
         {
+            if (recorder != null) recorder.Stop();
+            if (recordingBadge != null) Destroy(recordingBadge.transform.parent.gameObject);
             DestroyPointerInteraction();
             if (zoomMesh != null && originalUv != null) zoomMesh.uv = originalUv;
             if (detailCanvas != null) Destroy(detailCanvas.gameObject);

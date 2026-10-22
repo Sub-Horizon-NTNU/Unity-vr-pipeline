@@ -44,6 +44,9 @@ namespace ROVVR
         public float windowRotateSpeed = 45f;
         public bool windowFollowHand;
         public Vector2 menuAngles;
+        public bool recordPresentation = true;
+        public bool recordFullHd;
+        public bool recordFlipVertical = true;
         public float pointerYawSensitivity = 1.2f, pointerPitchSensitivity = 0.8f;
         public float pointerPitchOffset, pointerYawOffset;
         public float pointerSmoothingSeconds = 0.025f;

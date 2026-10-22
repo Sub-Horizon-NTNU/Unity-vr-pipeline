@@ -2,6 +2,8 @@
 
 ## Etter v1 — under utvikling
 
+- MP4-opptak av ren kameravideo eller PC-speilbilde med HUD, fra VR-meny og PC-panel; 720p/1080p ved 30 fps.
+- Egen Menu placement-side med pitch/yaw-slidere, lagret i JSON/profiler.
 - Stabil vindusflytting med venstre spak; høyre spak justerer pitch/yaw rundt vinduets sentrum.
 - Håndfølging er valgfri; grip + venstre spak justerer avstand. Hastighet og vinkler lagres i profiler.
 - Peker med siktekors på eget UI-lag, stråle som stopper på markøren og tydelig ramme rundt valgt vindu.

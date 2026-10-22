@@ -17,7 +17,7 @@ namespace ROVVR
         private readonly PilotMenuItem[] capturedMenuSliders = new PilotMenuItem[2];
         private readonly List<PilotMenuItem> menuItems = new List<PilotMenuItem>();
         private readonly List<PilotMenuItem> pageItems = new List<PilotMenuItem>();
-        private static readonly string[] PilotPages = { "ZOOM", "DETAIL PLACEMENT", "VIDEO", "HUD", "HUD PLACEMENT", "COMPASS / TILT", "PROFILES", "BINDINGS", "POINTERS", "MOVE WINDOWS" };
+        private static readonly string[] PilotPages = { "ZOOM", "DETAIL PLACEMENT", "VIDEO", "HUD", "HUD PLACEMENT", "COMPASS / TILT", "PROFILES", "BINDINGS", "POINTERS", "MOVE WINDOWS", "MENU PLACEMENT", "RECORDING" };
         private static readonly string[] CardNames = { "Status", "Battery", "Depth", "Camera tilt", "Attitude", "Diagnostics" };
 
         private sealed class PilotMenuItem
@@ -209,6 +209,23 @@ namespace ROVVR
                     MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
                     MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
                     MenuAction(() => "Place menu in front of me", PositionPilotMenu);
+                    break;
+                case 10:
+                    MenuSlider("Menu pitch", () => pilot.menuAngles.x, v => { pilot.menuAngles.x = v; ApplyMenuPlacement(); }, -60, 60, "°");
+                    MenuSlider("Menu yaw", () => pilot.menuAngles.y, v => { pilot.menuAngles.y = v; ApplyMenuPlacement(); }, -80, 80, "°");
+                    MenuSlider("Menu left / right", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
+                    MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
+                    MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
+                    MenuAction(() => "Reset menu angles", () => { pilot.menuAngles = Vector2.zero; ApplyMenuPlacement(); });
+                    MenuAction(() => "Place menu in front of me", PositionPilotMenu);
+                    break;
+                case 11:
+                    MenuAction(() => recorder != null && recorder.Recording ? "STOP recording" : "START recording", ToggleRecording);
+                    MenuAction(() => RecordingStatus, () => {});
+                    MenuToggle("PC mirror + HUD (off = clean video)", () => pilot.recordPresentation, v => pilot.recordPresentation = v);
+                    MenuToggle("Full HD (off = 720p) / 30 fps", () => pilot.recordFullHd, v => pilot.recordFullHd = v);
+                    MenuToggle("Flip recording vertically", () => pilot.recordFlipVertical, v => pilot.recordFlipVertical = v);
+                    MenuAction(() => "Save settings", SaveCalibration);
                     break;
                 case 7:
                     MenuAction(() => "Action: " + pilot.bindings[bindingIndex].action + "  >", () => bindingIndex = (bindingIndex + 1) % pilot.bindings.Length);

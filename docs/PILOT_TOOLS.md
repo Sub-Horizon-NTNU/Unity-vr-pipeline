@@ -178,3 +178,40 @@ Etter endringer må følgende også prøves fysisk i Quest: pekerretning, begge
 øyne, tekstlesbarhet, live profilbytte, lagring etter omstart og servofølging
 mens HUD-/zoomverdier endres. Menyåpning og zoom skal ikke endre servoens
 kontrollsesjon eller hodenøytral.
+
+## Videoopptak
+
+Åpne **RECORDING** i VR-menyen og velg **START recording** / **STOP recording**.
+De samme valgene finnes i F4-panelet under Zoom / VR menu / profiles / bindings.
+En rød REC-indikator vises i VR mens opptaket går. Vent til status viser Saved
+før du lukker programmet. Opptak starter aldri automatisk ved lasting av profiler.
+
+- **PC mirror + HUD:** tar opp Unitys PC-speilbilde med HUD, zoomvindu og synlig meny.
+  Dette er et flatt presentasjonsopptak, ikke stereoskopisk eller 360° video.
+  I editoren tas Game-visningen opp; ha Game-fanen synlig mens dere tar opp.
+- **Clean video:** tar opp hele kamerateksturen uten HUD, VR-hodebevegelse eller
+  digital zoom. Ingen ny UDP-mottaker eller endring av den aktive pipeline-en.
+- 1280×720 / 30 fps som standard; **Full HD** velger 1920×1080 / 30 fps.
+  Velg kilde og oppløsning før Start. Endringer brukes ved neste opptak.
+- **Flip recording vertically** korrigerer opp/ned ved behov. Ta et kort prøveklipp
+  før presentasjonen; orienteringen kan variere med grafikkbackend og opptakskilde.
+- Format: H.264 i MP4, uten lyd. Filene lagres i Windows-mappen
+  **Videoer\SubHorizon ROV**. PC-panelet har **Open recordings folder**.
+
+Enkoding og disk-I/O kjører på en bakgrunnstråd. Bare siste tilgjengelige
+GPU-bilde beholdes; ved lav oppdateringsrate gjentas siste bilde for å beholde
+riktig avspillingshastighet. Opptak kan likevel øke GPU-/CPU-belastningen;
+bruk 720p hvis ytelsen faller. Lukking/Stop avslutter enkoderen. MP4 skrives
+med fragmenter for å begrense skade ved avbrudd, men stopp normalt når mulig.
+
+Builden bruker den medfølgende GStreamer-runtime-en med gst-launch, rawvideoparse,
+x264enc, h264parse og mp4mux. Editor finner den lokale preview-/v1-runtime-en,
+eller GSTREAMER_1_0_ROOT_MSVC_X86_64. **ROV → View → Verify MP4 encoder (no movement)**
+kontrollerer enkoding med syntetiske bilder uten kamera- eller servokommandoer.
+
+## Menyvinkler
+
+Under **MENU PLACEMENT** finnes egne **Menu pitch**- og **Menu yaw**-slidere,
+sammen med sideplassering, høyde og avstand. **Reset menu angles** nullstiller
+helningen. De samme pitch/yaw-slidene finnes i PC-panelet. Verdiene er relative
+til menyens retning ved åpning og lagres med **Save startup JSON** eller en profil.
