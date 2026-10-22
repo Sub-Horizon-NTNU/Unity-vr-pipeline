@@ -11,4 +11,5 @@ ROV: BlueOS `192.168.2.2`, MAVLink2REST port6040, H.264/RTP video på UDP5601.
 Innstillinger i F4 eller Editor-menyen ROV → View → Manual calibration.
 
 Byggeren kjører 158 kodekontroller. Kodesjekker og oppstartstest på utviklings-PC-en erstatter ikke praktisk headset-/ROV-test på mottakermaskinen.
+Den ferdige Windows-spilleren er startet med bare den medfølgende GStreamer-runtime i søkebanen og mottok 1920×1080 RGBA-video. Windows-pluginen er bygget på nytt i Release/x64 uten avhengighet til Visual Studio-debug-runtime. En fersk Git-kloning med LFS er også kontrollert.
 Dette er ikke en APK. Original GstUnityPlugin-lisens/kreditering er bevart; tredjepartsruntime har egne medfølgende lisenser.
