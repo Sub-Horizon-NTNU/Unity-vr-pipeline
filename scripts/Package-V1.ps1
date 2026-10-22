@@ -44,6 +44,7 @@ exit /b %ERRORLEVEL%
 Copy-Item -LiteralPath (Join-Path $repo 'LICENSE.md'),(Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination $build -Force
 Copy-Item -LiteralPath (Join-Path $repo 'UnityProject\Assets\ROV\Resources\RovHudFont-LICENSE.txt') -Destination $build -Force
 Copy-Item -LiteralPath (Join-Path $repo 'docs\SETUP.md') -Destination (Join-Path $build 'LES-MEG.md') -Force
+Copy-Item -LiteralPath (Join-Path $repo 'scripts\Setup-Firewall.ps1') -Destination $build -Force
 $gstVersion = & (Join-Path $gst 'bin\gst-launch-1.0.exe') --version | Select-Object -First 1
 $commit = (& git -C $repo rev-parse HEAD).Trim()
 [ordered]@{version='v1';unity=$result.unityVersion;platform='Windows x64';graphics='Direct3D11';backend='Mono';gstreamer=$gstVersion;sourceCommit=$commit;checks=$result.checks} |

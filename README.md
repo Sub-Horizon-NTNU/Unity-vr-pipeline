@@ -16,6 +16,8 @@ Basert på [sealfoss/GstUnityPlugin](https://github.com/sealfoss/GstUnityPlugin)
 
 Dette er en **Windows x64-build for Quest Link / Air Link**, ikke en APK for direkte installasjon på Quest. Meta Horizon Link og en fungerende VR-PC er fortsatt nødvendig. Ved manglende MSVC-runtime, installer [Microsoft Visual C++ x64 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
 
+Ved blokkert videostrøm: bruk [Setup-Firewall.ps1](scripts/Setup-Firewall.ps1) og følg [brannmuroppsettet](docs/SETUP.md#brannmur-for-videostrøm). Skriptet tillater UDP 5601 fra ROV-en for valgt EXE, og kan fjerne sin egen regel igjen. Brannmuren forblir på.
+
 ## Åpne prosjektet på en annen PC
 
 Installer **Unity 6000.1.7f1** med **Windows Build Support**, Git og Git LFS.

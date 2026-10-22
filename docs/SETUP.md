@@ -14,6 +14,47 @@ Microsoft Visual C++ x64 Redistributable kan være nødvendig på en ny PC.
 Quest/Link-driver og OpenXR-runtime må være satt opp på vertsmaskinen.
 Programmet endrer ikke nettverkskort, brannmur eller autopilotparametere.
 
+## Brannmur for videostrøm
+
+Last ned [Setup-Firewall.ps1](../scripts/Setup-Firewall.ps1) og legg den ved siden av
+`Unity-vr-pipeline-v1.exe` i den utpakkede programmappen. Den opprinnelige v1-ZIP-en
+inneholder ikke skriptet; senere pakking legger det automatisk ved.
+Åpne **PowerShell som administrator**, gå til programmappen og kjør:
+
+```powershell
+.\Setup-Firewall.ps1 -WhatIf  # Vis hva som vil gjøres, uten endringer
+.\Setup-Firewall.ps1          # Opprett eller oppdater regelen
+```
+
+Regelen tillater bare **innkommende UDP til lokal port 5601 fra 192.168.2.2**
+for den valgte EXE-filen. Den gjelder alle nettverksprofiler, også når
+ROV-nettverket er klassifisert som offentlig. Brannmuren forblir aktiv.
+Kildeporten er fri fordi videosenderen kan velge en dynamisk port.
+MAVLink2REST bruker utgående HTTP til ROV-ens TCP-port 6040;
+Unity trenger ingen ekstra innkommende regel for denne forbindelsen.
+
+Egen programbane, IP eller videoport:
+
+```powershell
+.\Setup-Firewall.ps1 -ProgramPath 'C:\ROV\Unity-vr-pipeline-v1.exe' -RovAddress 192.168.2.2 -VideoPort 5601
+```
+
+Fjern regelen med `.\Setup-Firewall.ps1 -Remove` fra samme mappe, eller oppgi
+samme `-ProgramPath` som ved opprettelse. Kjør skriptet på nytt etter flytting
+av programmet; fjern gjerne regelen for gammel programbane først.
+For Unity Editor kan samme skript brukes med `-ProgramPath` satt til den
+installerte `Unity.exe`, siden Editor er en egen prosess.
+
+Hvis Windows blokkerer et nedlastet skript, kontroller innholdet og kjør
+`Unblock-File .\Setup-Firewall.ps1`. Skriptet endrer ikke kjøringspolicyen.
+En eksplisitt **Block**-regel for samme program har forrang fremfor en
+Allow-regel og må gjennomgås i Windows Defender-brannmur med avansert sikkerhet.
+Skriptet endrer ikke andre regler eller organisasjonens sikkerhetspolicy.
+Se [Microsofts dokumentasjon om regelprioritet](https://learn.microsoft.com/en-us/windows/security/operating-system-security/network-security/windows-firewall/rules).
+
+PC-en må fortsatt ha forbindelse til ROV-nettverket, og senderen må sende til
+riktig PC-adresse og port. Dette skriptet setter ikke IP på nettverkskortet.
+
 ## Hele Unity-prosjektet
 
 Bruk Git + Git LFS som i hoved-README, eller den vedlagte prosjekt-ZIP-en.
