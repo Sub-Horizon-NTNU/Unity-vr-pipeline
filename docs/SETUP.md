@@ -3,10 +3,10 @@
 ## Ferdig Windows-program
 
 1. Installer Meta Horizon Link og aktiver Quest Link / Air Link.
-2. Last ned Windows-ZIP-en fra [v1](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v1).
+2. Last ned Windows-ZIP-en fra [v2](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v2).
 3. Pakk ut hele ZIP-en. Behold EXE, `_Data`, `UnityPlayer.dll`, `MonoBleedingEdge` og `GStreamer` sammen.
 4. Koble PC-en til ROV-nettverket. Denne ROV-en bruker BlueOS på `192.168.2.2` og videomottak på PC-ens UDP-port 5601.
-5. Start `Start-v1.cmd`. Den setter PATH og pluginbaner bare for programmet; systemets PATH endres ikke.
+5. Start `Start-v2.cmd`. Den setter PATH og pluginbaner bare for programmet; systemets PATH endres ikke.
 6. Åpne programvisningen i Quest. Se rett frem og trykk venstre X.
 
 Ferdigbuilden trenger ingen Unity Editor og inkluderer GStreamer-runtime.
@@ -17,7 +17,7 @@ Programmet endrer ikke nettverkskort, brannmur eller autopilotparametere.
 ## Brannmur for videostrøm
 
 Last ned [Setup-Firewall.ps1](../scripts/Setup-Firewall.ps1) og legg den ved siden av
-`Unity-vr-pipeline-v1.exe` i den utpakkede programmappen. Den opprinnelige v1-ZIP-en
+`Unity-vr-pipeline-v2.exe` i den utpakkede programmappen. Den opprinnelige v1-ZIP-en
 inneholder ikke skriptet; senere pakking legger det automatisk ved.
 Åpne **PowerShell som administrator**, gå til programmappen og kjør:
 
@@ -36,7 +36,7 @@ Unity trenger ingen ekstra innkommende regel for denne forbindelsen.
 Egen programbane, IP eller videoport:
 
 ```powershell
-.\Setup-Firewall.ps1 -ProgramPath 'C:\ROV\Unity-vr-pipeline-v1.exe' -RovAddress 192.168.2.2 -VideoPort 5601
+.\Setup-Firewall.ps1 -ProgramPath 'C:\ROV\Unity-vr-pipeline-v2.exe' -RovAddress 192.168.2.2 -VideoPort 5601
 ```
 
 Fjern regelen med `.\Setup-Firewall.ps1 -Remove` fra samme mappe, eller oppgi
@@ -75,7 +75,7 @@ Unity Hub på nytt etter en endring i PATH.
 
 Hovedscenen er `Assets/GstUnityPlugin/Scenes/GstUnityPluginDemo01.unity`.
 Alle øvrige scener og sikkerhetskopiscener følger kildeprosjektet, men bare
-hovedscenen legges i Windows v1-spilleren.
+hovedscenen legges i Windows v2-spilleren.
 
 ## Kalibrering og profiler
 
@@ -113,3 +113,4 @@ batteriprosent vises ukjent selv når spenningen er tilgjengelig.
 Referanser: [Unity og eksterne versjonskontrollsystemer](https://docs.unity.cn/2021.1/Documentation/Manual/ExternalVersionControlSystemSupport.html),
 [Unity-metadata](https://docs.unity.com/en-us/engine/6000.7/manual/assets-and-media/import-assets/asset-metadata),
 [GStreamer på Windows](https://gstreamer.freedesktop.org/documentation/installing/on-windows.html).
+

@@ -1,6 +1,6 @@
 # Endringslogg
 
-## Etter v1 — under utvikling
+## v2 — 24. oktober 2026
 
 - MP4-opptak av ren kameravideo eller PC-speilbilde med HUD, fra VR-meny og PC-panel; 720p/1080p ved 30 fps.
 - Egen Menu placement-side med pitch/yaw-slidere, lagret i JSON/profiler.
@@ -35,3 +35,4 @@ Første delbare Windows x64-build og komplett Unity-prosjekt for Sub Horizon.
 - Windows-pluginen er bygget på nytt i Release/x64, med korrekt Win64-import og uten Visual Studio-debug-runtimeavhengighet.
 
 Android-kilde og binærer fra upstream er bevart, men v1 inneholder ingen ny APK.
+

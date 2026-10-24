@@ -28,10 +28,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if (!$ProgramPath) {
-    $ProgramPath = Join-Path $PSScriptRoot 'Unity-vr-pipeline-v1.exe'
-    if (!(Test-Path -LiteralPath $ProgramPath -PathType Leaf)) {
-        $ProgramPath = Join-Path $PSScriptRoot '..\Builds\v1\Unity-vr-pipeline-v1.exe'
+    $candidates = @('Unity-vr-pipeline-v2.exe', 'Unity-vr-pipeline-v1.exe',
+        '..\Builds\v2\Unity-vr-pipeline-v2.exe', '..\Builds\v1\Unity-vr-pipeline-v1.exe')
+    foreach ($candidate in $candidates) {
+        $candidatePath = Join-Path $PSScriptRoot $candidate
+        if (Test-Path -LiteralPath $candidatePath -PathType Leaf) { $ProgramPath = $candidatePath; break }
     }
+    if (!$ProgramPath) { throw 'Place this script beside the EXE or supply -ProgramPath.' }
 }
 $program = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ProgramPath)
 if ([IO.Path]::GetExtension($program) -ne '.exe') { throw 'ProgramPath must point to a Windows .exe.' }

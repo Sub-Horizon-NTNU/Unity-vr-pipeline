@@ -3,7 +3,7 @@
 | Symptom | Sjekk |
 | --- | --- |
 | Svart video | ROV-strøm til riktig PC-IP, UDP 5601, H.264/RTP payload96. Bare én app bør eie mottaksporten. |
-| `DllNotFoundException: GstUnityPlugin` | Start release med `Start-v1.cmd`. I Editor må GStreamer MSVC x64 `bin` være i PATH før Unity starter. Sjekk VC++ x64-runtime. |
+| `DllNotFoundException: GstUnityPlugin` | Start release med `Start-v2.cmd`. I Editor må GStreamer MSVC x64 `bin` være i PATH før Unity starter. Sjekk VC++ x64-runtime. |
 | Missing scripts/materialer etter flytting | Klon hele prosjektet med `.meta`, Packages og ProjectSettings. Bruk riktig Unity-versjon og `git lfs pull`. |
 | Ingen VR-visning | Aktiver Quest Link/Air Link og Meta/OpenXR på PC-en. Bygget er ikke en Quest-APK. |
 | «Venter på VR-fokus» | Gå tilbake til applikasjonen inne i Quest. En Quest-meny kan ta ekte VR-fokus selv om PC-en viser video. |
@@ -32,3 +32,4 @@ Ukjent batteriprosent vises ukjent og AHRS2-dybde er merket estimert.
 
 Kodesjekk og oppstartstest på utviklings-PC-en bekrefter ikke Quest-opplevelse
 eller installasjon på en ren Windows-PC. Gjør en praktisk kontroll før bruk.
+

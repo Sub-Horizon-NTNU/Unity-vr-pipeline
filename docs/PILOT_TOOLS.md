@@ -1,7 +1,7 @@
 # Zoom, pilotmeny og profiler
 
-Disse funksjonene er lagt til etter v1. Den publiserte v1-builden er uendret.
-Åpne prosjektet i Unity og bruk Play, eller bygg på nytt for å teste dem.
+Disse funksjonene inngår i v2. Den publiserte v1-builden er uendret.
+Last ned v2 fra GitHub Releases, pakk ut hele mappen og kjør `Start-v2.cmd`.
 
 Separat Windows-testbuild: **ROV → Release → Build Windows pilot tools preview**,
 deretter `./scripts/Prepare-PilotPreview.ps1` fra repoets toppmappe. Skriptet
@@ -62,6 +62,8 @@ Pilene øverst bytter side:
 8. **Bindings:** velg handling og bytt kontrollerknapp/tast.
 9. **Pointers:** følsomhet, siktevinkel, utjevning og sentrering av pekerne.
 10. **Move windows:** gripeknapp, flyttehastighet og menyplassering.
+11. **Menu placement:** menyens pitch, yaw, høyde, sideplassering og avstand.
+12. **Recording:** start/stopp MP4-opptak, opptakskilde, oppløsning og vertikal vending.
 
 Menyen kan alltid lukkes med CLOSE, også etter ombinding av menyknappen.
 Venstre spaks bildejustering og øvrige pilotsnarveier er sperret mens menyen
@@ -215,3 +217,4 @@ Under **MENU PLACEMENT** finnes egne **Menu pitch**- og **Menu yaw**-slidere,
 sammen med sideplassering, høyde og avstand. **Reset menu angles** nullstiller
 helningen. De samme pitch/yaw-slidene finnes i PC-panelet. Verdiene er relative
 til menyens retning ved åpning og lagres med **Save startup JSON** eller en profil.
+
