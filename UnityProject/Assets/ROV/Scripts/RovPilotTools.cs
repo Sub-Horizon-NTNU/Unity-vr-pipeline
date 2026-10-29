@@ -91,7 +91,7 @@ namespace ROVVR
 #endif
                 bool repeat = controlsLive && held && (binding.action == RovPilotAction.ZoomIn || binding.action == RovPilotAction.ZoomOut)
                     && Time.unscaledTime >= nextZoomStep;
-                bool suppress = (startupPending && binding.action != RovPilotAction.Menu) || WindowDragActive || ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
+                bool suppress = pointerRecoveryHeld || (startupPending && binding.action != RovPilotAction.Menu) || WindowDragActive || ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
                     || (GrabConsumesPilotInput(binding.button) && binding.action != RovPilotAction.Menu)
                     || (binding.action == RovPilotAction.AimZoom && TryPointedWindow(1, out _, out _, out _));
                 if (ProcessPilotInput(binding.action, held, controlsLive, key, repeat, suppress))
@@ -269,7 +269,12 @@ namespace ROVVR
         {
             var device = InputDevices.GetDeviceAtXRNode(index == 0 ? XRNode.LeftHand : XRNode.RightHand);
             handTracked[index] = device.isValid && device.TryGetFeatureValue(CommonUsages.isTracked, out bool tracked) && tracked
-                && device.TryGetFeatureValue(CommonUsages.devicePosition, out _) && device.TryGetFeatureValue(CommonUsages.deviceRotation, out _);
+                && device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 pos) && device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rot);
+            // isTracked can stay true while positional tracking is lost (rotation-only prediction).
+            if (device.TryGetFeatureValue(CommonUsages.trackingState, out InputTrackingState tracking)) handTracked[index] &= RovPointerMath.FullyTracked(tracking);
+            device.TryGetFeatureValue(CommonUsages.devicePosition, out pos);
+            device.TryGetFeatureValue(CommonUsages.deviceRotation, out rot);
+            handTracked[index] &= RovPointerMath.PoseValid(pos, rot);
             if (controllerModels[index] == null)
             {
                 BuildControllerModel(index);
@@ -282,8 +287,6 @@ namespace ROVVR
             controllerModels[index].gameObject.SetActive(visible && pilot.showControllers);
             controllerRays[index].gameObject.SetActive(visible && (pilot.showPointers || pilotMenuOpen));
             if (!visible) { pointerFilterReady[index] = false; return; }
-            device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 pos);
-            device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rot);
             Transform origin = eye.parent;
             Vector3 worldPos = origin == null ? pos : origin.TransformPoint(pos);
             Quaternion worldRot = origin == null ? rot : origin.rotation * rot;
@@ -291,7 +294,10 @@ namespace ROVVR
             device.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stickAxis);
             stickModels[index].localPosition = new Vector3((index == 0 ? 0.012f : -0.012f) + stickAxis.x * 0.008f, 0.046f, 0.017f + stickAxis.y * 0.008f);
             // Prefer the runtime's aim pose; device pose is a fallback for older backends.
-            if (TryRuntimeAim(index, out Vector3 aimPos, out Quaternion aimRot))
+            bool runtimeAim = TryRuntimeAim(index, out Vector3 aimPos, out Quaternion aimRot);
+            int source = runtimeAim ? 1 : 2;
+            if (pointerPoseSources[index] != source) { pointerInitialized[index] = pointerFilterReady[index] = false; pointerPoseSources[index] = source; }
+            if (runtimeAim)
             { worldPos = origin == null ? aimPos : origin.TransformPoint(aimPos); worldRot = origin == null ? aimRot : origin.rotation * aimRot; }
             Vector3 direction = AdjustPointer(index, worldRot);
             handRays[index] = new Ray(worldPos, direction);
@@ -355,9 +361,11 @@ namespace ROVVR
             Slider("Pointer smoothing (0=off)", ref pilot.pointerSmoothingSeconds, 0f, 0.15f, " s", "F3");
             if (Application.isPlaying)
             {
-                if (GUILayout.Button("Center left pointer to gaze")) CenterPointer(0);
-                if (GUILayout.Button("Center right pointer to gaze")) CenterPointer(1);
+                if (GUILayout.Button("Sentrer venstre peker mot meny / blikk")) CenterPointer(0);
+                if (GUILayout.Button("Sentrer høyre peker mot meny / blikk")) CenterPointer(1);
+                if (GUILayout.Button("Hent menyen rett foran meg og sentrer pekerne")) RecoverPilotMenu();
             }
+            GUILayout.Label("Snarvei: hold begge grip-knappene i 0,7 s for å rette opp meny og pekere.");
             pilot.windowDraggingEnabled = GUILayout.Toggle(pilot.windowDraggingEnabled, "Grab and move windows with left controller");
             if (GUILayout.Button("Window grab: " + pilot.windowGrabButton)) pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3);
             Slider("Window movement speed", ref pilot.windowMoveSpeed, 0.1f, 2f, " m/s", "F2");

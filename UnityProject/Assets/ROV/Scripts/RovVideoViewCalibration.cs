@@ -418,7 +418,7 @@ namespace ROVVR
             var left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
             if (IsHeadReady())
             {
-                if (!startupPending && !pilotMenuOpen && !WindowDragActive && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
+                if (!startupPending && !pilotMenuOpen && !WindowDragActive && !pointerRecoveryHeld && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
                     && left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick))
                 {
                     left.TryGetFeatureValue(CommonUsages.gripButton, out bool grip);

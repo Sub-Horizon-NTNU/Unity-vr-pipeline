@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.XR;
 
 namespace ROVVR.Editor
 {
@@ -36,6 +37,12 @@ namespace ROVVR.Editor
             bool invalid = false;
             try { new RovPilotSettings { pointerPitchSensitivity = float.NaN }.Validate(); } catch (ArgumentException) { invalid = true; }
             Expect(invalid, "Non-finite pointing settings must be rejected"); checks++;
+            Expect(!RovPointerMath.FullyTracked(InputTrackingState.Rotation)
+                && RovPointerMath.FullyTracked(InputTrackingState.Position | InputTrackingState.Rotation),
+                "Rotation-only prediction must never count as a valid UI pointer"); checks++;
+            Expect(!RovPointerMath.PoseValid(new Vector3(float.NaN, 0, 0), Quaternion.identity)
+                && !RovPointerMath.PoseValid(Vector3.zero, new Quaternion(0, 0, 0, 0))
+                && RovPointerMath.PoseValid(Vector3.zero, Quaternion.identity), "Reject corrupt poses without rejecting a real origin pose"); checks++;
             var go = new GameObject("Pointer drag regression (no control traffic)"); go.SetActive(false);
             var window = new GameObject("Pointer test window", typeof(RectTransform));
             var detail = new GameObject("Pointer test detail", typeof(RectTransform), typeof(Canvas));
@@ -99,6 +106,66 @@ namespace ROVVR.Editor
                 var rotationProfile = RovVideoViewProfile.Parse(JsonUtility.ToJson(view.GetProfile()));
                 Near(rotationProfile.pilot.menuAngles.x, -2.25f); Near(rotationProfile.pilot.menuAngles.y, 2.25f);
                 Expect(!rotationProfile.pilot.windowFollowHand, "Stable sticks-only mode must persist"); checks++;
+
+                // The startup chooser moves independently, even if the saved profile disables window dragging.
+                Drag(view, false, true, false, Vector2.zero, ray);
+                Set(view, "startupPending", true); tilt.StartupSelectionPending = true;
+                view.pilot.windowDraggingEnabled = false;
+                Vector2 savedMenuAngles = view.pilot.menuAngles;
+                Vector3 savedMenuPosition = new Vector3(view.pilot.menuSide, view.pilot.menuHeight, view.pilot.menuDistance);
+                typeof(RovVideoViewCalibration).GetMethod("PositionPilotMenu", Fields).Invoke(view, null);
+                Ray startupRay = new Ray(eye.transform.position, (root.position - eye.transform.position).normalized);
+                initial = root.position;
+                Drag(view, true, true, false, Vector2.right, startupRay);
+                Expect(root.position.x > initial.x + 0.02f, "Startup profile chooser must be movable before Start"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("ProcessWindowRotation", Fields).Invoke(view, new object[] {Vector2.one, 0.05f});
+                Expect(Quaternion.Angle(root.rotation, Quaternion.identity) > 1f && tilt.StartupSelectionPending
+                    && savedMenuAngles == view.pilot.menuAngles && savedMenuPosition == new Vector3(view.pilot.menuSide, view.pilot.menuHeight, view.pilot.menuDistance),
+                    "Moving/rotating startup UI must preserve saved placement and keep servo gated"); checks++;
+                moved = root.position;
+                typeof(RovVideoViewCalibration).GetMethod("StraightenDraggedWindow", Fields).Invoke(view, null);
+                Expect(Quaternion.Angle(root.rotation, Quaternion.identity) < 0.01f && Vector3.Distance(root.position, moved) < 0.0001f
+                    && view.pilot.menuAngles == savedMenuAngles, "Straightening a grabbed chooser must keep its position and saved angles"); checks++;
+                Drag(view, false, true, false, Vector2.zero, startupRay);
+                eye.transform.rotation = Quaternion.Euler(20f, 37f, 12f);
+                view.RecoverPilotMenu();
+                Expect(Mathf.Abs(root.forward.y) < 0.0001f && Mathf.Abs(root.right.y) < 0.0001f
+                    && Mathf.Abs(Vector3.Distance(root.position, eye.transform.position) - new Vector3(0, -0.05f, 1.25f).magnitude) < 0.0001f,
+                    "Recovery must place menu upright at a reachable distance regardless of head pitch/roll"); checks++;
+                Expect(tilt.StartupSelectionPending && (bool)Get(tilt, "calibrated") && (float)Get(tilt, "neutralPitch") == 8f
+                    && tilt.CommandsSent == 0, "Menu recovery must not reset head calibration, start tilt or send control traffic"); checks++;
+                var hands = (bool[])Get(view, "handTracked"); hands[1] = true;
+                var rays = (Ray[])Get(view, "handRays"); rays[1] = new Ray(eye.transform.position + new Vector3(0.3f, -0.25f, 0.1f), Vector3.forward);
+                var rawAims = (Quaternion[])Get(view, "rawAimRotations"); rawAims[1] = Quaternion.Euler(15f, 23f, 0);
+                view.pilot.pointerSmoothingSeconds = 0;
+                view.CenterPointer(1);
+                Vector3 aimed = (Vector3)typeof(RovVideoViewCalibration).GetMethod("AdjustPointer", Fields).Invoke(view, new object[] {1, rawAims[1]});
+                Expect(RovPointerMath.Hit(root, new Ray(rays[1].origin, aimed), out Vector3 centerHit, out _)
+                    && Vector3.Distance(centerHit, root.position) < 0.0001f,
+                    "Pointer recenter must hit panel center from offset hand origin, including on yawed panels"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("PointerTrackingOriginChanged", Fields).Invoke(view, new object[] {null});
+                Expect(!((bool[])Get(view, "pointerInitialized"))[1] && !hands[1], "XR recenter must discard old pointer calibration and tracking"); checks++;
+                Set(view, "startupPending", false); tilt.StartupSelectionPending = false;
+                view.pilot.menuAngles = new Vector2(33f, -42f); view.pilot.menuDistance = 3;
+                view.RecoverPilotMenu();
+                Expect(view.pilot.menuAngles == Vector2.zero && view.pilot.menuSide == 0f && view.pilot.menuDistance == 1.25f,
+                    "Ordinary menu recovery must clear troublesome angles and placement"); checks++;
+                eye.transform.rotation = Quaternion.Euler(0, 179f, 0);
+                aimed = (Vector3)typeof(RovVideoViewCalibration).GetMethod("AdjustPointer", Fields).Invoke(view, new object[] {1, eye.transform.rotation});
+                Expect(Vector3.Angle(aimed, eye.transform.forward) < 0.01f,
+                    "Turning around must not amplify absolute world yaw into an inaccurate pointer"); checks++;
+                view.pilot.pointerYawOffset = 10;
+                aimed = (Vector3)typeof(RovVideoViewCalibration).GetMethod("AdjustPointer", Fields).Invoke(view, new object[] {1, eye.transform.rotation});
+                Expect(Vector3.Angle(aimed, Quaternion.Euler(0, 191f, 0) * Vector3.forward) < 0.01f,
+                    "Changed pointer settings must replace stale calibration from the old profile"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {true});
+                Expect(view.pilot.menuAngles == Vector2.zero, "Recovery hold starts without changing menu placement");
+                view.pilot.menuAngles = new Vector2(20, 30);
+                Set(view, "pointerRecoverySince", Time.realtimeSinceStartup - 1f);
+                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {true});
+                Expect(view.pilot.menuAngles == Vector2.zero && (bool)Get(view, "pointerRecoveryFired"),
+                    "Holding both grips must recover without requiring a pointer hit"); checks++;
+                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {false});
 
                 // The visible endpoint must be UI geometry above the window,
                 // rather than a 3D line that can disappear in its canvas.

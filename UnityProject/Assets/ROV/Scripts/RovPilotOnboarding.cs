@@ -67,7 +67,7 @@ namespace ROVVR
         }
         private string PageHint()
         {
-            if (startupPending) return "Velg oppsett og trykk Start. Kameratilten venter.\nHøyre avtrekker velger. ? Hjelp viser kontrollene.";
+            if (startupPending) return "Høyre avtrekker velger. Venstre avtrekker + spak flytter.\nHold begge grip 0,7 s: rett opp meny og pekere. Tilten venter.";
             if (pilotPage == 13) return "Oversikten bruker dine aktive knappevalg.\nBytt del øverst. Hjem tar deg tilbake.";
             if (pilotPage == 6 || pilotPage == 15) return "Profiler inneholder bilde, HUD og knappevalg.\nLagre en ny profil før du deler eller endrer et oppsett.";
             if (pilotPage == 12) return "Pek og velg med høyre avtrekker.\nVenstre avtrekker griper menyen. ? Hjelp forklarer mer.";
@@ -221,7 +221,7 @@ namespace ROVVR
                 HelpWide(80, "2  PEK OG VELG", "Pek med høyre hånd. Trykk høyre avtrekker på et kort eller valg.");
                 HelpWide(-30, "3  JUSTER EN VERDI", "Hold høyre avtrekker og dra over verdifeltet. Endringen vises straks.");
                 HelpWide(-140, "4  LAGRE OPPSETTET", "Profiler → Ny profil. Bruk et navn som beskriver piloten eller oppgaven.");
-                HelpWide(-250, "FINNER DU IKKE PEKEREN?", "Tilpass oppsettet → Pekere → sentrer høyre peker i synsretningen.");
+                HelpWide(-250, "SKJEV MENY ELLER FEIL PEKER?", "Hold begge grip-knappene i 0,7 s. Menyen rettes opp foran deg, og begge pekere sentreres mot midten.");
             }
             else
             {
@@ -229,8 +229,8 @@ namespace ROVVR
                 HelpWide(190, "1  GRIP MENYEN ELLER ZOOMVINDUET", grab + " holdes inne mens du peker på vinduet. Gullramme betyr valgt.");
                 HelpWide(80, "2  FLYTT", "Venstre spak: sideveis og opp/ned. Hold gripeknappen inne.");
                 HelpWide(-30, "3  ENDRE AVSTAND", (pilot.windowGrabButton == RovWindowGrabButton.LeftGrip ? "Høyre grip" : "Venstre eller høyre grip") + " + venstre spak opp/ned.");
-                HelpWide(-140, "4  VINKLE OG PLASSER", "Høyre spak justerer pitch/yaw. Slipp gripeknappen når plasseringen er god.");
-                HelpWide(-250, "BEHOLD PLASSERINGEN", "Hjem → Profiler → lagre endringer eller opprett en ny profil.");
+                HelpWide(-140, "4  VINKLE OG RETT OPP", "Høyre spak: pitch/yaw. Høyre spakklikk: nullstill vinklene på valgt vindu. Slipp gripeknappen for å plassere.");
+                HelpWide(-250, "RETT OPP / BEHOLD PLASSERINGEN", "Begge grip i 0,7 s: meny foran deg. Lagre via Profiler. Oppstartsmenyen kan også flyttes; den endrer ikke lagrede profiler.");
             }
         }
         private void HelpPanel(string title, float x)

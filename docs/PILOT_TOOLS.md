@@ -275,8 +275,10 @@ hodebaserte mål og tar ikke RC-sperren før Start er valgt. En ugyldig profil
 viser feil og lar velgeren stå åpen. På PC finnes Start-knappene også direkte
 i Game-visningen, uten at F4-panelet må åpnes.
 
-Velkomstmenyen bruker en fast, vannrett plassering foran brukeren, slik at
-lagrede menyvinkler ikke gjør første valg vanskelig å nå. Etter Start brukes
+Velkomstmenyen starter vannrett foran brukeren, slik at lagrede menyvinkler
+ikke gjør første valg vanskelig å nå. Den kan flyttes med samme kontroller
+som resten av menyen, også om vindusflytting er slått av i forrige oppsett.
+Flytting og vinkling før Start endrer bare velkomstmenyen. Etter Start brukes
 profilens vanlige menyplassering. Profilvalg endrer ikke den lagrede startfilen
 uten at du velger å lagre den. Eksisterende profiler og innstillinger beholdes.
 
@@ -291,3 +293,30 @@ uten at du velger å lagre den. Eksisterende profiler og innstillinger beholdes.
 Dette er en hjelpeside som åpnes fra menyen, og dekker ikke pilotbildet når
 menyen lukkes. Bruk **Hjem** for å gå tilbake. Mer avanserte valg er beholdt.
 Praktisk lesbarhet og betjening må fortsatt prøves i Quest.
+
+## Rette opp meny og pekere (etter v2)
+
+- **Begge grip-knappene i 0,7 sekunder:** henter menyen vannrett foran deg ved
+  1,25 m, nullstiller menyens pitch/yaw og sentrerer begge sporede pekere mot
+  midten. Hold hendene i en behagelig pekestilling mens du gjør dette. Snarveien
+  virker også når menyen er lukket. Den brukes når du ikke holder et vindu.
+- **RETT OPP** øverst i menyen gjør det samme. PC-panelet har også denne knappen.
+- **Høyre spakklikk mens du holder et vindu:** nullstiller vinklene på det valgte
+  meny-/zoomvinduet og beholder posisjonen. Høyre spak vinkler fortsatt fritt.
+- Pekerknappene under **Pekere** sentrerer nå mot selve menymidten med hensyn til
+  kontrollerens posisjon. Når menyen er lukket, brukes et punkt 2 m foran blikket.
+
+Dette endrer ikke hodenøytral, videosentrering eller servoens kontrolløkt.
+Normal menyplassering kan lagres i profilen som før; velkomstmenyens plassering
+er midlertidig. Snarveien med begge grip-knappene er reservert for å hente menyen;
+andre pilotbindinger venter mens kombinasjonen holdes inne.
+
+Pekeren krever både posisjons- og rotasjonssporing. Ved bare rotasjonsprediksjon
+skjules pekeren i stedet for å bruke en gammel håndposisjon. Menyen viser en
+melding når høyre kontroller mangler full sporing. Gammel pekerreferanse forkastes
+ved XR-resentrering, endrede pekerinnstillinger og bytte mellom aim- og grip-pose. Følsomhetens yaw beregnes
+rundt dagens hoderetning, slik at en stor vending ikke forsterker hele verdensvinkelen.
+
+Problemet under utetesten er ikke gjenskapt. Meta oppgir at sterkt lys og direkte
+sollys kan svekke Quest 2-kontrollernes infrarøde sporing:
+[Controllers Best Practices](https://developers.meta.com/vr/design/controllers-best-practices/).

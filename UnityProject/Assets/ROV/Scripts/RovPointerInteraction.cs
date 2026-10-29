@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.XR;
+using System.Collections.Generic;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem.Controls;
 using UnityEngine.InputSystem.XR;
@@ -11,6 +12,15 @@ namespace ROVVR
 {
     public static class RovPointerMath
     {
+        public static bool PoseValid(Vector3 position, Quaternion rotation)
+        {
+            float norm = Quaternion.Dot(rotation, rotation);
+            return RovCameraPoseMath.Finite(position.x) && RovCameraPoseMath.Finite(position.y) && RovCameraPoseMath.Finite(position.z)
+                && RovCameraPoseMath.Finite(norm) && norm > 0.5f && norm < 1.5f;
+        }
+        public static bool FullyTracked(InputTrackingState state)
+            => (state & (InputTrackingState.Position | InputTrackingState.Rotation)) == (InputTrackingState.Position | InputTrackingState.Rotation);
+
         public static Vector3 Direction(Quaternion rawAim, Quaternion reference, Quaternion target,
             float yawGain, float pitchGain, float pitchOffset, float yawOffset)
         {
@@ -42,7 +52,7 @@ namespace ROVVR
     {
         private enum DragWindow { None, Menu, Detail }
         private DragWindow draggedWindow;
-        private bool grabWasHeld, pointerFocusLastFrame;
+        private bool grabWasHeld, pointerFocusLastFrame, windowAlignHeld;
         private Plane dragPlane;
         private Vector3 previousDragPoint;
         private Vector2 grabbedPoint;
@@ -54,6 +64,14 @@ namespace ROVVR
         private readonly bool[] pointerFilterReady = new bool[2];
         private readonly Quaternion[] rawAimRotations = new Quaternion[2];
         private readonly Vector3[] smoothAimDirections = new Vector3[2];
+        private readonly int[] pointerPoseSources = new int[2];
+        private readonly Vector4[] pointerSettingsUsed = new Vector4[2];
+        private Vector4 PointerSettings => new Vector4(pilot.pointerYawSensitivity, pilot.pointerPitchSensitivity, pilot.pointerPitchOffset, pilot.pointerYawOffset);
+        private readonly List<XRInputSubsystem> pointerSubsystems = new List<XRInputSubsystem>();
+        private readonly List<XRInputSubsystem> discoveredPointerSubsystems = new List<XRInputSubsystem>();
+        private float nextPointerSubsystemCheck;
+        private bool pointerRecoveryHeld, pointerRecoveryFired;
+        private float pointerRecoverySince = -1f;
         private readonly RectTransform[] pointerReticles = new RectTransform[2], windowOutlines = new RectTransform[2];
         private readonly RovPointerVisualGraphic[] cursorGraphics = new RovPointerVisualGraphic[2], outlineGraphics = new RovPointerVisualGraphic[2];
         private Material pointerMaterial;
@@ -62,6 +80,7 @@ namespace ROVVR
         private void PreparePointerInput()
         {
             if (eye == null) return;
+            WatchPointerTrackingOrigin();
             EnsurePilotMaterials();
             UpdateController(0); UpdateController(1);
             var left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
@@ -71,11 +90,15 @@ namespace ROVVR
             left.TryGetFeatureValue(CommonUsages.gripButton, out bool depthModifier);
             var right = InputDevices.GetDeviceAtXRNode(XRNode.RightHand);
             right.TryGetFeatureValue(CommonUsages.gripButton, out bool rightGrip);
+            UpdatePointerRecovery(depthModifier && rightGrip && handTracked[0] && handTracked[1] && IsHeadReady());
             left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick);
             float delta = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
             ProcessWindowDrag(held, handTracked[0] && IsHeadReady(),
                 (depthModifier && pilot.windowGrabButton != RovWindowGrabButton.LeftGrip) || (handTracked[1] && rightGrip), stick, handRays[0], delta);
             if (handTracked[1] && right.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 rotation)) ProcessWindowRotation(rotation, delta);
+            right.TryGetFeatureValue(CommonUsages.primary2DAxisClick, out bool align);
+            if (WindowDragActive && handTracked[1] && align && !windowAlignHeld) StraightenDraggedWindow();
+            windowAlignHeld = align;
         }
 
         private bool TryPointedWindow(int hand, out DragWindow window, out Vector3 hit, out float distance)
@@ -93,13 +116,13 @@ namespace ROVVR
         {
             bool edge = held && !grabWasHeld && pointerFocusLastFrame;
             grabWasHeld = held; pointerFocusLastFrame = ready;
-            if (!ready || startupPending || !pilot.windowDraggingEnabled || !held) { draggedWindow = DragWindow.None; return; }
+            if (!ready || pointerRecoveryHeld || (!startupPending && !pilot.windowDraggingEnabled) || !held) { draggedWindow = DragWindow.None; return; }
             if (!WindowDragActive && edge)
             {
                 RectTransform target = null;
                 if (pilotMenuOpen && RovPointerMath.Hit(pilotMenuRoot, ray, out _, out _))
                 { target = pilotMenuRoot; draggedWindow = DragWindow.Menu; }
-                else if (pilot.detailEnabled && detailCanvas != null && RovPointerMath.Hit((RectTransform)detailCanvas.transform, ray, out _, out _))
+                else if (!startupPending && pilot.detailEnabled && detailCanvas != null && RovPointerMath.Hit((RectTransform)detailCanvas.transform, ray, out _, out _))
                 { target = (RectTransform)detailCanvas.transform; draggedWindow = DragWindow.Detail; }
                 if (target == null) return;
                 RovPointerMath.Hit(target, ray, out Vector3 hit, out _);
@@ -127,8 +150,10 @@ namespace ROVVR
             if (draggedWindow == DragWindow.Menu)
             {
                 Vector3 p = Quaternion.Inverse(menuAnchorRotation) * (desired - menuAnchorPosition);
-                pilot.menuSide = Mathf.Clamp(p.x, -2f, 2f); pilot.menuHeight = Mathf.Clamp(p.y, -1.5f, 1.5f);
-                pilot.menuDistance = Mathf.Clamp(p.z, 0.8f, 3f); ApplyMenuPlacement();
+                p = new Vector3(Mathf.Clamp(p.x, -2f, 2f), Mathf.Clamp(p.y, -1.5f, 1.5f), Mathf.Clamp(p.z, 0.8f, 3f));
+                if (startupPending) startupMenuPosition = p;
+                else { pilot.menuSide = p.x; pilot.menuHeight = p.y; pilot.menuDistance = p.z; }
+                ApplyMenuPlacement();
             }
             else
             {
@@ -145,7 +170,9 @@ namespace ROVVR
             if (axis == Vector2.zero) return;
             if (draggedWindow == DragWindow.Menu)
             {
-                pilot.menuAngles = new Vector2(Mathf.Clamp(pilot.menuAngles.x - axis.y, -60f, 60f), Mathf.Clamp(pilot.menuAngles.y + axis.x, -80f, 80f));
+                Vector2 angles = startupPending ? startupMenuAngles : pilot.menuAngles;
+                angles = new Vector2(Mathf.Clamp(angles.x - axis.y, -60f, 60f), Mathf.Clamp(angles.y + axis.x, -80f, 80f));
+                if (startupPending) startupMenuAngles = angles; else pilot.menuAngles = angles;
                 ApplyMenuPlacement();
             }
             else
@@ -161,56 +188,142 @@ namespace ROVVR
             if (WindowDragActive) return true;
             RovPilotButton grab = pilot.windowGrabButton == RovWindowGrabButton.LeftTrigger ? RovPilotButton.LeftTrigger
                 : pilot.windowGrabButton == RovWindowGrabButton.LeftGrip ? RovPilotButton.LeftGrip : RovPilotButton.LeftStick;
-            return pilot.windowDraggingEnabled && button == grab && TryPointedWindow(0, out _, out _, out _);
+            return (startupPending || pilot.windowDraggingEnabled) && button == grab && TryPointedWindow(0, out _, out _, out _);
+        }
+
+        private void StraightenDraggedWindow()
+        {
+            if (draggedWindow == DragWindow.Menu)
+            {
+                if (startupPending) startupMenuAngles = Vector2.zero; else pilot.menuAngles = Vector2.zero;
+                ApplyMenuPlacement();
+            }
+            else if (draggedWindow == DragWindow.Detail)
+            { pilot.detailAngles = Vector3.zero; UpdateDetailPose(); }
         }
 
         private bool TryRuntimeAim(int index, out Vector3 position, out Quaternion rotation)
         {
             position = Vector3.zero; rotation = Quaternion.identity;
+            // Prefer pose data from the same XR device used for tracking and buttons.
+            var device = InputDevices.GetDeviceAtXRNode(index == 0 ? XRNode.LeftHand : XRNode.RightHand);
+            if (device.TryGetFeatureValue(new InputFeatureUsage<Vector3>("PointerPosition"), out position)
+                && device.TryGetFeatureValue(new InputFeatureUsage<Quaternion>("PointerRotation"), out rotation)
+                && RovPointerMath.PoseValid(position, rotation)) return true;
 #if ENABLE_INPUT_SYSTEM
             var controller = index == 0 ? XRController.leftHand : XRController.rightHand;
-            if (controller != null && controller.added && controller.enabled)
+            if (controller != null && controller.added && controller.enabled && controller.isTracked.isPressed
+                && RovPointerMath.FullyTracked((InputTrackingState)controller.trackingState.ReadValue()))
             {
                 var p = controller.TryGetChildControl<Vector3Control>("pointerPosition");
                 var r = controller.TryGetChildControl<QuaternionControl>("pointerRotation");
                 if (p != null && r != null)
                 {
+                    var aim = controller.TryGetChildControl<PoseControl>("pointer");
+                    if (aim != null)
+                    {
+                        var state = aim.ReadValue();
+                        if (!state.isTracked || !RovPointerMath.FullyTracked((InputTrackingState)state.trackingState)) return false;
+                    }
                     position = p.ReadValue(); rotation = r.ReadValue();
-                    if (rotation.x * rotation.x + rotation.y * rotation.y + rotation.z * rotation.z + rotation.w * rotation.w > 0.5f) return true;
+                    if (RovPointerMath.PoseValid(position, rotation)) return true;
                 }
             }
 #endif
-            var device = InputDevices.GetDeviceAtXRNode(index == 0 ? XRNode.LeftHand : XRNode.RightHand);
-            return device.TryGetFeatureValue(new InputFeatureUsage<Vector3>("PointerPosition"), out position)
-                && device.TryGetFeatureValue(new InputFeatureUsage<Quaternion>("PointerRotation"), out rotation);
+            return false;
         }
 
         public void CenterPointer(int hand)
         {
             if (hand < 0 || hand > 1 || !handTracked[hand] || eye == null) return;
-            Vector3 corrected = rawAimRotations[hand] * Quaternion.Euler(-pilot.pointerPitchOffset, pilot.pointerYawOffset, 0f) * Vector3.forward;
-            pointerReferences[hand] = Quaternion.LookRotation(corrected, Vector3.up);
-            pointerTargets[hand] = Quaternion.LookRotation(eye.forward, Vector3.up);
-            pointerInitialized[hand] = true; smoothAimDirections[hand] = eye.forward;
+            Vector3 target = pilotMenuOpen && pilotMenuRoot != null ? pilotMenuRoot.position : eye.position + eye.forward * 2f;
+            CenterPointerAt(hand, target);
+        }
+
+        private void CenterPointerAt(int hand, Vector3 point)
+        {
+            if (!handTracked[hand] || eye == null) return;
+            Quaternion origin = eye.parent == null ? Quaternion.identity : eye.parent.rotation;
+            Vector3 corrected = Quaternion.Inverse(origin) * (rawAimRotations[hand] * Quaternion.Euler(-pilot.pointerPitchOffset, pilot.pointerYawOffset, 0f) * Vector3.forward);
+            Vector3 direction = (point - handRays[hand].origin).normalized;
+            Quaternion pivot = PointerSensitivityPivot(origin);
+            Vector3 gained = RovPointerMath.Direction(Quaternion.LookRotation(corrected, Vector3.up), pivot, pivot,
+                pilot.pointerYawSensitivity, pilot.pointerPitchSensitivity, 0f, 0f);
+            pointerReferences[hand] = Quaternion.LookRotation(gained, Vector3.up);
+            pointerTargets[hand] = Quaternion.LookRotation(Quaternion.Inverse(origin) * direction, Vector3.up);
+            pointerSettingsUsed[hand] = PointerSettings;
+            pointerInitialized[hand] = true; smoothAimDirections[hand] = direction;
             pointerFilterReady[hand] = true;
         }
 
         private Vector3 AdjustPointer(int hand, Quaternion raw)
         {
             rawAimRotations[hand] = raw;
+            Quaternion origin = eye.parent == null ? Quaternion.identity : eye.parent.rotation;
+            if (pointerSettingsUsed[hand] != PointerSettings)
+            { pointerInitialized[hand] = pointerFilterReady[hand] = false; pointerSettingsUsed[hand] = PointerSettings; }
             bool initialize = !pointerInitialized[hand];
             if (initialize)
             {
-                pointerReferences[hand] = pointerTargets[hand] = Quaternion.LookRotation(eye.forward, Vector3.up);
+                pointerReferences[hand] = pointerTargets[hand] = Quaternion.identity;
                 pointerInitialized[hand] = true;
             }
-            Vector3 direction = RovPointerMath.Direction(raw, pointerReferences[hand], pointerTargets[hand],
-                pilot.pointerYawSensitivity, pilot.pointerPitchSensitivity, pilot.pointerPitchOffset, pilot.pointerYawOffset);
+            Quaternion corrected = Quaternion.Inverse(origin) * raw * Quaternion.Euler(-pilot.pointerPitchOffset, pilot.pointerYawOffset, 0f);
+            Quaternion pivot = PointerSensitivityPivot(origin);
+            // Scale around the current heading, not the heading at app boot. A 180-degree
+            // turn must not multiply the entire world yaw and throw the pointer behind its target.
+            Vector3 gained = RovPointerMath.Direction(corrected, pivot, pivot, pilot.pointerYawSensitivity, pilot.pointerPitchSensitivity, 0f, 0f);
+            Vector3 direction = origin * (pointerTargets[hand] * Quaternion.Inverse(pointerReferences[hand]) * gained);
             bool resetFilter = !pointerFilterReady[hand];
             float blend = pilot.pointerSmoothingSeconds <= 0f || resetFilter ? 1f : 1f - Mathf.Exp(-Time.unscaledDeltaTime / pilot.pointerSmoothingSeconds);
             smoothAimDirections[hand] = resetFilter ? direction : Vector3.Slerp(smoothAimDirections[hand], direction, blend).normalized;
             pointerFilterReady[hand] = true;
             return smoothAimDirections[hand];
+        }
+
+        private Quaternion PointerSensitivityPivot(Quaternion origin)
+        {
+            Vector3 forward = Vector3.ProjectOnPlane(Quaternion.Inverse(origin) * eye.forward, Vector3.up);
+            return forward.sqrMagnitude < 0.001f ? Quaternion.identity : Quaternion.LookRotation(forward, Vector3.up);
+        }
+
+        // Deliberate, aim-independent recovery. It does not recenter the video or send servo commands.
+        private void UpdatePointerRecovery(bool held)
+        {
+            pointerRecoveryHeld = held && !WindowDragActive;
+            if (!pointerRecoveryHeld) { pointerRecoverySince = -1f; pointerRecoveryFired = false; return; }
+            if (pointerRecoverySince < 0f) pointerRecoverySince = Time.realtimeSinceStartup;
+            if (pointerRecoveryFired || Time.realtimeSinceStartup - pointerRecoverySince < 0.7f) return;
+            pointerRecoveryFired = true; RecoverPilotMenu();
+        }
+
+        public void RecoverPilotMenu()
+        {
+            if (eye == null) return;
+            if (!pilotMenuOpen && Application.isPlaying) TogglePilotMenu();
+            if (startupPending) { startupMenuPosition = new Vector3(0f, -0.05f, 1.25f); startupMenuAngles = Vector2.zero; }
+            else { pilot.menuSide = 0f; pilot.menuHeight = -0.05f; pilot.menuDistance = 1.25f; pilot.menuAngles = Vector2.zero; }
+            draggedWindow = DragWindow.None;
+            PositionPilotMenu();
+            if (pilotMenuRoot != null) for (int hand = 0; hand < 2; hand++) CenterPointerAt(hand, pilotMenuRoot.position);
+            capturedMenuSliders[0] = capturedMenuSliders[1] = null;
+            ResetPilotInputEdges();
+            pilotMessage = "Meny rettet opp. Pekere sentrert mot menyen.\nHold begge grip-knappene i 0,7 s for å gjøre dette igjen.";
+        }
+
+        private void WatchPointerTrackingOrigin()
+        {
+            if (Time.unscaledTime < nextPointerSubsystemCheck) return;
+            nextPointerSubsystemCheck = Time.unscaledTime + 1f;
+            SubsystemManager.GetSubsystems(discoveredPointerSubsystems);
+            foreach (var subsystem in discoveredPointerSubsystems)
+                if (!pointerSubsystems.Contains(subsystem)) { subsystem.trackingOriginUpdated += PointerTrackingOriginChanged; pointerSubsystems.Add(subsystem); }
+        }
+        private void PointerTrackingOriginChanged(XRInputSubsystem subsystem)
+        {
+            for (int i = 0; i < 2; i++) { pointerInitialized[i] = pointerFilterReady[i] = handTracked[i] = false; }
+            HidePointerInteraction(); ResetPilotInputEdges();
+            if (pilotMenuOpen) PositionPilotMenu();
         }
 
         private LineRenderer PointerLine(string name, Transform parent, int count, float width, Color color)
@@ -267,6 +380,8 @@ namespace ROVVR
         }
         private void DestroyPointerInteraction()
         {
+            foreach (var subsystem in pointerSubsystems) subsystem.trackingOriginUpdated -= PointerTrackingOriginChanged;
+            pointerSubsystems.Clear();
             for (int i = 0; i < 2; i++) if (pointerReticles[i] != null) Destroy(pointerReticles[i].gameObject);
             for (int i = 0; i < 2; i++) if (windowOutlines[i] != null) Destroy(windowOutlines[i].gameObject);
             if (pointerMaterial != null) Destroy(pointerMaterial);

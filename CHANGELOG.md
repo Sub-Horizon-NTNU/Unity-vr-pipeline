@@ -2,6 +2,9 @@
 
 ## Etter v2 — brukervennlighet og servostyring
 
+- Flyttbar profilvelger før Start, med midlertidig plassering som ikke endrer lagrede profiler.
+- Rett opp meny/pekere med begge grip-knappene; nullstill vindusvinkler med høyre spakklikk mens vinduet holdes.
+- Pekersentrering tar hensyn til håndposisjon. Pekerfølsomhet bruker dagens hoderetning; ugyldig posisjonssporing og gamle referanser etter XR-resentrering forkastes.
 - Profilvelger ved oppstart, med uttrykkelig Start før kameratilten begynner å følge hodet.
 - Hjem-side med funksjonskort og egen inngang til avanserte valg.
 - Kontrollhjelp for pilotering, meny/peker og vindusflytting, tilpasset aktive knappevalg.

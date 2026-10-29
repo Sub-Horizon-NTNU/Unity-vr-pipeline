@@ -14,6 +14,9 @@ namespace ROVVR
         private PilotMenuItem closeMenuItem;
         private int pilotPage = 12, layoutCard, bindingIndex;
         private float menuTextAt;
+        // Startup placement belongs to the chooser, not to the profile being previewed.
+        private Vector3 startupMenuPosition = new Vector3(0f, -0.05f, 1.25f);
+        private Vector2 startupMenuAngles;
         private readonly bool[] menuTriggerHeld = new bool[2];
         private readonly PilotMenuItem[] capturedMenuSliders = new PilotMenuItem[2];
         private readonly List<PilotMenuItem> menuItems = new List<PilotMenuItem>();
@@ -62,6 +65,7 @@ namespace ROVVR
                 canvas.worldCamera = eye.GetComponent<Camera>(); canvas.sortingOrder = 250;
                 var bg = go.AddComponent<Image>(); bg.material = pilotUiMaterial; bg.color = new Color(0.018f, 0.032f, 0.052f, 0.98f);
                 pilotMenuTitle = PilotLabel(pilotMenuRoot, "SUB HORIZON   /   PILOT", 0, 415, 850, 60, 26);
+                MenuButton(pilotMenuRoot, "RETT OPP", 330, 415, 160, 48, RecoverPilotMenu, false);
                 closeMenuItem = MenuButton(pilotMenuRoot, "LUKK", 0, -420, 220, 54, () => TogglePilotMenu(), false);
                 MenuButton(pilotMenuRoot, "HJEM", -310, -420, 180, 54, () => GoPilotPage(startupPending ? 14 : 12), false);
                 MenuButton(pilotMenuRoot, "? HJELP", 310, -420, 180, 54, () => GoPilotPage(13), false);
@@ -80,7 +84,7 @@ namespace ROVVR
         private void PositionPilotMenu()
         {
             if (eye == null || pilotMenuRoot == null) return;
-            Vector3 forward = startupPending ? Vector3.ProjectOnPlane(eye.forward, Vector3.up) : eye.forward;
+            Vector3 forward = Vector3.ProjectOnPlane(eye.forward, Vector3.up);
             if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
             menuAnchorPosition = eye.position;
             menuAnchorRotation = Quaternion.LookRotation(forward, Vector3.up);
@@ -90,7 +94,8 @@ namespace ROVVR
         private void ApplyMenuPlacement()
         {
             if (startupPending && pilotMenuRoot != null)
-            { pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition + menuAnchorRotation * new Vector3(0, -0.05f, 1.25f), menuAnchorRotation); return; }
+            { pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition + menuAnchorRotation * startupMenuPosition,
+                menuAnchorRotation * Quaternion.Euler(startupMenuAngles.x, startupMenuAngles.y, 0f)); return; }
             if (pilotMenuRoot != null) pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition
                 + menuAnchorRotation * new Vector3(pilot.menuSide, pilot.menuHeight, pilot.menuDistance),
                 menuAnchorRotation * Quaternion.Euler(pilot.menuAngles.x, pilot.menuAngles.y, 0f));
@@ -244,8 +249,8 @@ namespace ROVVR
                     MenuSlider("Aim pitch (+ up)", () => pilot.pointerPitchOffset, v => pilot.pointerPitchOffset = v, -45, 45, "°");
                     MenuSlider("Aim yaw", () => pilot.pointerYawOffset, v => pilot.pointerYawOffset = v, -30, 30, "°");
                     MenuSlider("Pointer smoothing (0=off)", () => pilot.pointerSmoothingSeconds, v => pilot.pointerSmoothingSeconds = v, 0, 0.15f, " s", "F3");
-                    MenuAction(() => "Center LEFT pointer to gaze", () => CenterPointer(0));
-                    MenuAction(() => "Center RIGHT pointer to gaze", () => CenterPointer(1));
+                    MenuAction(() => "Sentrer VENSTRE peker mot menyen", () => CenterPointer(0));
+                    MenuAction(() => "Sentrer HØYRE peker mot menyen", () => CenterPointer(1));
                     MenuToggle("Controller models", () => pilot.showControllers, v => pilot.showControllers = v);
                     MenuToggle("Pointers outside menu", () => pilot.showPointers, v => pilot.showPointers = v);
                     break;
@@ -276,7 +281,9 @@ namespace ROVVR
             if (Time.unscaledTime >= menuTextAt)
             {
                 RefreshMenuText();
-                string status = WindowDragActive ? "Venstre spak: flytt / grip + spak: avstand\nHøyre spak: vinkle / slipp gripeknappen for å plassere"
+                string status = XRSettings.isDeviceActive && IsHeadReady() && !handTracked[1]
+                    ? "Høyre peker venter på full posisjonssporing.\nHold kontrolleren synlig foran headsettet; sjekk lysforholdene."
+                    : WindowDragActive ? "V. spak: flytt / grip + spak: avstand\nH. spak: vinkle / H. spakklikk: nullstill vinkler"
                     : string.IsNullOrEmpty(pilotMessage) ? PageHint() : pilotMessage;
                 if (pilotMenuStatus.text != status) pilotMenuStatus.text = status;
                 menuTextAt = Time.unscaledTime + 0.1f;
@@ -288,8 +295,8 @@ namespace ROVVR
                 device.TryGetFeatureValue(CommonUsages.triggerButton, out bool pressed);
                 bool edge = pressed && !menuTriggerHeld[i]; menuTriggerHeld[i] = pressed;
                 if (!pressed) capturedMenuSliders[i] = null;
-                if (!handTracked[i] || !IsHeadReady()) { capturedMenuSliders[i] = null; continue; }
-                if (WindowDragActive || (i == 0 && pilot.windowDraggingEnabled && pilot.windowGrabButton == RovWindowGrabButton.LeftTrigger))
+                if (!handTracked[i] || !IsHeadReady() || pointerRecoveryHeld) { capturedMenuSliders[i] = null; continue; }
+                if (WindowDragActive || (i == 0 && (startupPending || pilot.windowDraggingEnabled) && pilot.windowGrabButton == RovWindowGrabButton.LeftTrigger))
                 { capturedMenuSliders[i] = null; continue; }
                 var plane = new Plane(pilotMenuRoot.forward, pilotMenuRoot.position);
                 if (!plane.Raycast(handRays[i], out float enter) || enter < 0f || enter > 5f) continue;
@@ -307,6 +314,7 @@ namespace ROVVR
                 PilotMenuItem target = null;
                 foreach (var item in menuItems)
                 {
+                    if (!item.rect.gameObject.activeInHierarchy) continue;
                     Vector2 p = item.rect.InverseTransformPoint(hit);
                     if (item.rect.rect.Contains(p)) { target = item; break; }
                 }
