@@ -43,6 +43,7 @@ namespace ROVVR
         public bool HeadTracked => tracked;
         public bool BlueOsLive => heartbeat.IsFresh(Time.realtimeSinceStartup);
         public RovHudTelemetry HudTelemetry { get; } = new RovHudTelemetry();
+        public string PilotTelemetryStatus => pilotTelemetryStream?.Status ?? "Stopped";
         public int CommandsSent { get; private set; }
         public bool RcControlSelected => paused;
         public bool StartupSelectionPending { get; set; }
@@ -88,6 +89,7 @@ namespace ROVVR
         private readonly RovHeartbeatFreshness attitudeFreshness = new RovHeartbeatFreshness(0.75f);
         private readonly RovHeartbeatFreshness mountFreshness = new RovHeartbeatFreshness(0.75f);
         private UnityWebRequest commandRequest, telemetryRequest, releaseRequest;
+        private RovPilotTelemetryStream pilotTelemetryStream;
         private bool paused, focused, applicationPaused, tracked, calibrated, canSend, ownsMount;
         private bool commandRejected, holdTargetInitialized;
         private float stableSince = -1f, neutralPitch, retryAt, firstCommandAt = -1f;
@@ -109,6 +111,8 @@ namespace ROVVR
             RefreshControlFocus();
             heartbeat.Reset();
             HudTelemetry.Reset();
+            pilotTelemetryStream = new RovPilotTelemetryStream();
+            pilotTelemetryStream.Start(blueOsUrl);
             attitudeFreshness.Reset();
             mountFreshness.Reset();
             ResetCalibration();
@@ -127,6 +131,7 @@ namespace ROVVR
 
         private void Update()
         {
+            pilotTelemetryStream?.Drain(HudTelemetry, Time.realtimeSinceStartup);
             RefreshControlFocus();
             ReadButtons();
             tracked = TryReadHeadPitch(out float pitch);
@@ -138,7 +143,7 @@ namespace ROVVR
 
             if (!ready)
             {
-                string reason = StartupSelectionPending ? "Velg profil og trykk Start" : paused ? "RC/kontroller valgt" : !focused ? "Venter på VR-fokus"
+                string reason = StartupSelectionPending ? "Venter på headset og ROV" : paused ? "RC/kontroller valgt" : !focused ? "Venter på VR-fokus"
                     : !tracked ? "Venter på VR-headsett" : commandRejected ? "ROV avviste tiltkommandoen"
                     : BlueOsLive && compensateRovPitch && !AttitudeLive ? "Venter på fersk ROV-IMU" : "Venter på BlueOS";
                 SuspendForInterruption(reason);
@@ -568,6 +573,9 @@ namespace ROVVR
 
         private void OnDisable()
         {
+            pilotTelemetryStream?.Dispose();
+            pilotTelemetryStream = null;
+            HudTelemetry.ResetPilotValues();
             Application.wantsToQuit -= AllowQuit;
             canSend = false;
             shuttingDown = true;

@@ -158,14 +158,36 @@ namespace ROVVR.Editor
                 aimed = (Vector3)typeof(RovVideoViewCalibration).GetMethod("AdjustPointer", Fields).Invoke(view, new object[] {1, eye.transform.rotation});
                 Expect(Vector3.Angle(aimed, Quaternion.Euler(0, 191f, 0) * Vector3.forward) < 0.01f,
                     "Changed pointer settings must replace stale calibration from the old profile"); checks++;
-                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {true});
-                Expect(view.pilot.menuAngles == Vector2.zero, "Recovery hold starts without changing menu placement");
+                RecoveryAt(view, true, 10f);
+                Expect(view.pilot.menuAngles == Vector2.zero && !(bool)Get(view, "pointerRecoveryFired")
+                    && (float)Get(view, "pointerRecoverySince") == 10f,
+                    "Recovery hold starts without changing menu placement"); checks++;
                 view.pilot.menuAngles = new Vector2(20, 30);
-                Set(view, "pointerRecoverySince", Time.realtimeSinceStartup - 1f);
-                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {true});
+                RecoveryAt(view, true, 10.69f);
+                Expect(view.pilot.menuAngles == new Vector2(20, 30) && !(bool)Get(view, "pointerRecoveryFired"),
+                    "Recovery must not fire before the deliberate 0.7-second hold"); checks++;
+                RecoveryAt(view, true, 10.71f);
                 Expect(view.pilot.menuAngles == Vector2.zero && (bool)Get(view, "pointerRecoveryFired"),
                     "Holding both grips must recover without requiring a pointer hit"); checks++;
-                typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecovery", Fields).Invoke(view, new object[] {false});
+                view.pilot.menuAngles = new Vector2(20, 30);
+                RecoveryAt(view, true, 11.5f);
+                Expect(view.pilot.menuAngles == new Vector2(20, 30) && (bool)Get(view, "pointerRecoveryFired"),
+                    "A continuing hold must recover only once"); checks++;
+                RecoveryAt(view, false, 11.6f);
+                Expect(!(bool)Get(view, "pointerRecoveryHeld") && !(bool)Get(view, "pointerRecoveryFired")
+                    && (float)Get(view, "pointerRecoverySince") < 0f,
+                    "Releasing both grips must reset the recovery timer and fired state"); checks++;
+                RecoveryAt(view, true, 12f);
+                Expect(view.pilot.menuAngles == new Vector2(20, 30) && !(bool)Get(view, "pointerRecoveryFired")
+                    && (float)Get(view, "pointerRecoverySince") == 12f,
+                    "A new hold must start a new recovery interval"); checks++;
+                RecoveryAt(view, true, 12.69f);
+                Expect(view.pilot.menuAngles == new Vector2(20, 30) && !(bool)Get(view, "pointerRecoveryFired"),
+                    "The previous hold must not shorten a new deliberate hold"); checks++;
+                RecoveryAt(view, true, 12.71f);
+                Expect(view.pilot.menuAngles == Vector2.zero && (bool)Get(view, "pointerRecoveryFired"),
+                    "A second deliberate hold must recover again after release"); checks++;
+                RecoveryAt(view, false, 12.8f);
 
                 // The visible endpoint must be UI geometry above the window,
                 // rather than a 3D line that can disappear in its canvas.
@@ -202,6 +224,9 @@ namespace ROVVR.Editor
             }
             return checks;
         }
+        private static void RecoveryAt(RovVideoViewCalibration view, bool held, float now)
+            => typeof(RovVideoViewCalibration).GetMethod("UpdatePointerRecoveryAt", Fields).Invoke(view, new object[] {held, now});
+
         private static void Drag(RovVideoViewCalibration view, bool held, bool ready, bool depth, Vector2 stick, Ray ray)
             => typeof(RovVideoViewCalibration).GetMethod("ProcessWindowDrag", Fields).Invoke(view, new object[] {held, ready, depth, stick, ray, 0.05f});
         private static void Set(object target, string field, object value) => target.GetType().GetField(field, Fields).SetValue(target, value);

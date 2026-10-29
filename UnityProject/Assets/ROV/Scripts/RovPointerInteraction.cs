@@ -288,12 +288,14 @@ namespace ROVVR
         }
 
         // Deliberate, aim-independent recovery. It does not recenter the video or send servo commands.
-        private void UpdatePointerRecovery(bool held)
+        private void UpdatePointerRecovery(bool held) => UpdatePointerRecoveryAt(held, Time.realtimeSinceStartup);
+
+        private void UpdatePointerRecoveryAt(bool held, float now)
         {
             pointerRecoveryHeld = held && !WindowDragActive;
             if (!pointerRecoveryHeld) { pointerRecoverySince = -1f; pointerRecoveryFired = false; return; }
-            if (pointerRecoverySince < 0f) pointerRecoverySince = Time.realtimeSinceStartup;
-            if (pointerRecoveryFired || Time.realtimeSinceStartup - pointerRecoverySince < 0.7f) return;
+            if (pointerRecoverySince < 0f) pointerRecoverySince = now;
+            if (pointerRecoveryFired || now - pointerRecoverySince < 0.7f) return;
             pointerRecoveryFired = true; RecoverPilotMenu();
         }
 

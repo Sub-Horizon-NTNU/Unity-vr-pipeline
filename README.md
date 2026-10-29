@@ -1,17 +1,17 @@
 # Sub Horizon — Unity VR Pipeline
 
-ROV-video i Quest 2 via en Windows-PC med Quest Link / Air Link. Prosjektet dekoder H.264 med GStreamer, viser video på en justerbar buet flate og styrer kameratilt fra hodebevegelse via BlueOS/MAVLink. Et flytende pilot-HUD viser telemetri, med en kompassring nederst.
+Atlas ROV video in Quest 3 through a Windows PC with Meta Horizon Link / Air Link. GStreamer decodes H.264 onto an adjustable curved display, with head-camera tilt through BlueOS/MAVLink, a compact FPV HUD and the existing compass circle. Optional room passthrough needs [Meta developer setup](docs/SETUP.md#room-passthrough-over-meta-horizon-link-after-v2).
 
 Basert på [sealfoss/GstUnityPlugin](https://github.com/sealfoss/GstUnityPlugin). Hele Unity-prosjektet, egne ROV-komponenter og den native pluginens kildekode er med. Original lisens og kreditering er bevart.
 
-## Last ned v2
+## Download v3
 
-[Gå til v2-utgivelsen](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v2). Tidligere [v1](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v1) er fortsatt tilgjengelig.
+[v3 release and notes](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v3). Earlier [v2](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v2) and [v1](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/releases/tag/v1) remain available.
 
 | Fil | Bruk |
 | --- | --- |
-| `Unity-vr-pipeline-v2-Windows-x64.zip` | Ferdig Windows-program med GStreamer-runtime. Pakk ut hele mappen og kjør `Start-v2.cmd`. |
-| `Unity-vr-pipeline-v2-project.zip` | Komplett kildeprosjekt med faktiske LFS-filer. Pakk ut og åpne `UnityProject` i Unity Hub. |
+| `Unity-vr-pipeline-v3-Windows-x64.zip` | Windows application with GStreamer. Extract the whole folder and run `Start-v3.cmd`. |
+| `Unity-vr-pipeline-v3-project.zip` | Complete source project with actual LFS assets. Open `UnityProject` in Unity Hub. |
 | `SHA256SUMS.txt` | SHA-256 for nedlastingene. |
 
 Dette er en **Windows x64-build for Quest Link / Air Link**, ikke en APK for direkte installasjon på Quest. Meta Horizon Link og en fungerende VR-PC er fortsatt nødvendig. Ved manglende MSVC-runtime, installer [Microsoft Visual C++ x64 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe).
@@ -37,15 +37,15 @@ Assets/GstUnityPlugin/Scenes/GstUnityPluginDemo01.unity
 
 Start Quest Link / Air Link, gå tilbake til Unity-visningen i headsettet og trykk Play. Se rett frem og trykk **venstre X** for å sentrere. For kjøring i Editor trenger PC-en [GStreamer MSVC x64](https://gstreamer.freedesktop.org/download/) i PATH; releasepakken setter miljøet lokalt gjennom startfilen.
 
-**Behold `.meta`-filene.** Assets, Packages og ProjectSettings ligger i Git. `Library`, `Temp`, `Logs`, IDE-filer og lokale builds er utelatt med vilje; Unity lager dem på nytt. Ikke kopier bare C#-filene til et tomt prosjekt. Prosjekt-ZIP-en i v2-utgivelsen er et alternativ til Git/LFS.
+**Behold `.meta`-filene.** Assets, Packages og ProjectSettings ligger i Git. `Library`, `Temp`, `Logs`, IDE-filer og lokale builds er utelatt med vilje; Unity lager dem på nytt. Ikke kopier bare C#-filene til et tomt prosjekt. The v3 project ZIP is an alternative to Git/LFS.
 
-## Oppsett som v2 bruker
+## V3 environment
 
 | Del | Verdi |
 | --- | --- |
 | Unity | 6000.1.7f1 |
 | Plattform | Windows x64, Direct3D 11, Mono |
-| Headsett | Quest 2 med Link / Air Link og OpenXR |
+| Headset | Quest 3 with Meta Horizon Link / OpenXR; earlier releases targeted Quest 2 |
 | Pakker | Meta XR 77.0.0, OpenXR 1.14.3, URP 17.1.0, Input System 1.14.0 |
 | ROV | Raspberry Pi 4, Navigator, BlueOS, ArduSub 4.5.7 |
 | MAVLink2REST | `http://192.168.2.2:6040` |
@@ -60,10 +60,11 @@ udpsrc port=5601 ! application/x-rtp,media=video,encoding-name=H264,clock-rate=9
 
 ## Kontroller og innstillinger
 
-Nytt i v2: [digital zoom, detaljvindu, VR-meny, profiler og ombinding](docs/PILOT_TOOLS.md).
-I oppdatert prosjekt åpner **høyre spakklikk / F3** VR-menyen. Høyre spak
-opp/ned zoomer, og høyre avtrekker velger et punkt på videoflaten. Den
-opprinnelige v1-nedlastingen inneholder ikke disse nye funksjonene.
+V3 starts the saved pilot view automatically when headset, VR focus and ROV are
+ready. **Right-stick click / F3** opens quick settings. The compact green
+horizon is available at **1× only**; zoom keeps the fixed reticle, critical
+pilot information and compass. See [pilot controls](docs/PILOT_TOOLS.md) and
+[v3 changes and validation limits](docs/RELEASE_v3.md).
 
 | Kontroll | Handling |
 | --- | --- |
@@ -74,7 +75,7 @@ opprinnelige v1-nedlastingen inneholder ikke disse nye funksjonene.
 | Venstre spak | Bildestørrelse sideveis, avstand opp/ned. |
 | Venstre avtrekker + spak sideveis | Krumming. |
 | Venstre grip + spak | Helning sideveis, vertikal plassering opp/ned. |
-| F4 | Innstillingspanel på PC. |
+| F4 | Legacy desktop panel when XR is inactive; use F3/right-stick settings in VR. |
 | F5 / F2 | Lagre / last JSON. |
 | R / P | Nullstill hodenøytral / separat servopause. I Editor må Game-visningen ha fokus. |
 
@@ -99,7 +100,11 @@ En ny PC starter med `Assets/StreamingAssets/rov-video-view.defaults.json`. En e
 - [Kameratilt og MAVLink](UnityProject/Assets/ROV/README.md)
 - [Endringslogg](CHANGELOG.md), [tredjepartsprogramvare](THIRD_PARTY_NOTICES.md)
 
-v2 bygger videre på første delbare prosjektpakke. Byggeren kjører 222 kodekontroller. Kodesjekker erstatter ikke Quest-test eller måling av fysisk kamerabevegelse. Videoen er monokulær, og PWM/mount-vinkel er rapportert mål fra autopiloten, ikke ekstern servovinkelmåling.
+Code checks do not replace headset testing or measurement of physical camera
+motion. Video is monoscopic, and reported mount angles are autopilot targets,
+not measured servo feedback. V3 includes camera RC-input gating and recovery;
+read [the ownership and restoration rules](docs/PILOT_TOOLS.md#vr-prioritet-og-rc-håndover-etter-v2)
+before operation. It sends no arming or thruster commands.
 
 ## Lisens
 

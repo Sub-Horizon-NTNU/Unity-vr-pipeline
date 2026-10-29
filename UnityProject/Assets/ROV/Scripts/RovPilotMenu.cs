@@ -11,18 +11,19 @@ namespace ROVVR
     {
         private RectTransform pilotMenuRoot, pilotMenuPage;
         private Text pilotMenuTitle, pilotMenuStatus;
-        private PilotMenuItem closeMenuItem;
+        private PilotMenuItem closeMenuItem, backMenuItem;
         private int pilotPage = 12, layoutCard, bindingIndex;
         private float menuTextAt;
-        // Startup placement belongs to the chooser, not to the profile being previewed.
+        // Pending-startup menu placement must not modify the profile being prepared.
         private Vector3 startupMenuPosition = new Vector3(0f, -0.05f, 1.25f);
         private Vector2 startupMenuAngles;
         private readonly bool[] menuTriggerHeld = new bool[2];
         private readonly PilotMenuItem[] capturedMenuSliders = new PilotMenuItem[2];
         private readonly List<PilotMenuItem> menuItems = new List<PilotMenuItem>();
         private readonly List<PilotMenuItem> pageItems = new List<PilotMenuItem>();
-        private static readonly string[] PilotPages = { "ZOOM", "ZOOMVINDU", "BILDE", "INSTRUMENTER", "HUD-PLASSERING", "KAMERA OG KOMPASS", "PROFILER", "KNAPPEVALG", "PEKERE", "FLYTT VINDUER", "MENYPLASSERING", "OPPTAK", "HJEM", "KONTROLLER OG HJELP", "VELKOMMEN / VELG PROFIL", "GI PROFILEN ET NAVN", "AVANSERTE VALG" };
-        private static readonly string[] CardNames = { "Status", "Battery", "Depth", "Camera tilt", "Attitude", "Diagnostics" };
+        // Preserve page IDs consumed by the existing Editor tools.
+        private static readonly string[] PilotPages = { "ZOOM", "ZOOMVINDU", "BILDE", "HUD OG LESBARHET", "HUD-PLASSERING", "KAMERA OG KOMPASS", "PROFILER", "KNAPPEVALG", "PEKERE", "FLYTT VINDUER", "MENYPLASSERING", "OPPTAK", "PILOTINNSTILLINGER", "KONTROLLER OG HJELP", "PILOTINNSTILLINGER", "GI PROFILEN ET NAVN", "ALLE INNSTILLINGER" };
+        private static readonly string[] CardNames = { "Status", "Batteri", "Dybde", "Kameratilt", "Horisont", "Diagnostikk" };
 
         private sealed class PilotMenuItem
         {
@@ -53,9 +54,13 @@ namespace ROVVR
         public void TogglePilotMenu()
         {
             if (!Application.isPlaying || eye == null) return;
-            if (pilotMenuOpen && startupPending) { pilotPage = 14; BuildMenuPage(); return; }
+            SetPilotMenuOpen(!pilotMenuOpen);
+        }
+
+        private void SetPilotMenuOpen(bool open)
+        {
             EnsurePilotMaterials();
-            pilotMenuOpen = !pilotMenuOpen;
+            pilotMenuOpen = open;
             if (pilotMenuRoot == null)
             {
                 var go = new GameObject("ROV pilot menu", typeof(RectTransform), typeof(Canvas));
@@ -66,13 +71,13 @@ namespace ROVVR
                 var bg = go.AddComponent<Image>(); bg.material = pilotUiMaterial; bg.color = new Color(0.018f, 0.032f, 0.052f, 0.98f);
                 pilotMenuTitle = PilotLabel(pilotMenuRoot, "SUB HORIZON   /   PILOT", 0, 415, 850, 60, 26);
                 MenuButton(pilotMenuRoot, "RETT OPP", 330, 415, 160, 48, RecoverPilotMenu, false);
-                closeMenuItem = MenuButton(pilotMenuRoot, "LUKK", 0, -420, 220, 54, () => TogglePilotMenu(), false);
-                MenuButton(pilotMenuRoot, "HJEM", -310, -420, 180, 54, () => GoPilotPage(startupPending ? 14 : 12), false);
-                MenuButton(pilotMenuRoot, "? HJELP", 310, -420, 180, 54, () => GoPilotPage(13), false);
+                closeMenuItem = MenuButton(pilotMenuRoot, "LUKK / PILOTVISNING", 212, -420, 396, 54, () => TogglePilotMenu(), false);
+                backMenuItem = MenuButton(pilotMenuRoot, "TILBAKE", -212, -420, 396, 54,
+                    () => GoPilotPage(pilotPage == 16 ? 12 : pilotPage == 15 ? 6 : 16), false);
                 pilotMenuStatus = PilotLabel(pilotMenuRoot, "", 0, -355, 840, 65, 20);
             }
             pilotMenuRoot.gameObject.SetActive(pilotMenuOpen);
-            if (pilotMenuOpen) { RefreshProfiles(); pilotPage = startupPending ? 14 : 12; PositionPilotMenu(); BuildMenuPage(); }
+            if (pilotMenuOpen) { RefreshProfiles(); pilotPage = 12; PositionPilotMenu(); BuildMenuPage(); }
             // Consume the opening press; a held trigger cannot click through into the menu.
             for (int i = 0; i < 2; i++)
             {
@@ -116,7 +121,7 @@ namespace ROVVR
             item.caption = caption;
         }
         private void MenuToggle(string title, Func<bool> get, Action<bool> set)
-            => MenuAction(() => title + (get() ? "   ON" : "   OFF"), () => set(!get()));
+            => MenuAction(() => title + (get() ? "   PÅ" : "   AV"), () => set(!get()));
         private void MenuSlider(string title, Func<float> get, Action<float> set, float min, float max, string unit = "", string format = "F2")
         {
             var item = MenuButton(pilotMenuPage, "", 0, MenuRowY, 820, 56, () => { });
@@ -142,128 +147,128 @@ namespace ROVVR
             if (pilotMenuPage != null) { pilotMenuPage.gameObject.SetActive(false); if (Application.isPlaying) Destroy(pilotMenuPage.gameObject); else DestroyImmediate(pilotMenuPage.gameObject); }
             pilotMenuPage = PilotNode("Page", pilotMenuRoot, 0, 0, 900, 650);
             PilotLabel(pilotMenuPage, PilotPages[pilotPage], 0, 345, 600, 55, 27);
-            if (closeMenuItem != null) closeMenuItem.rect.gameObject.SetActive(!startupPending);
+            if (closeMenuItem != null) closeMenuItem.rect.gameObject.SetActive(true);
+            if (backMenuItem != null) backMenuItem.rect.gameObject.SetActive(pilotPage != 12 && pilotPage != 14);
             switch (pilotPage)
             {
                 case 0:
-                    MenuSlider("Main zoom", () => pilot.mainZoom, v => pilot.mainZoom = v, 1, 8, "x");
-                    MenuToggle("Detail window", () => pilot.detailEnabled, v => pilot.detailEnabled = v);
-                    MenuSlider("Detail zoom (total)", () => pilot.detailZoom, v => pilot.detailZoom = v, 1, 8, "x");
-                    MenuSlider("Target left / right", () => pilot.zoomCenter.x, v => pilot.zoomCenter.x = v, 0, 1);
-                    MenuSlider("Target bottom / top", () => pilot.zoomCenter.y, v => pilot.zoomCenter.y = v, 0, 1);
-                    MenuAction(() => "Reset main zoom / center target", () => ExecutePilotAction(RovPilotAction.ResetZoom));
-                    MenuToggle("Controller models", () => pilot.showControllers, v => pilot.showControllers = v);
-                    MenuToggle("Pointers outside menu", () => pilot.showPointers, v => pilot.showPointers = v);
+                    MenuSlider("Hovedzoom", () => pilot.mainZoom, v => pilot.mainZoom = v, 1, 8, "x");
+                    MenuToggle("Detaljvindu", () => pilot.detailEnabled, v => pilot.detailEnabled = v);
+                    MenuSlider("Detaljzoom (totalt)", () => pilot.detailZoom, v => pilot.detailZoom = v, 1, 8, "x");
+                    MenuSlider("Zoompunkt venstre / høyre", () => pilot.zoomCenter.x, v => pilot.zoomCenter.x = v, 0, 1);
+                    MenuSlider("Zoompunkt ned / opp", () => pilot.zoomCenter.y, v => pilot.zoomCenter.y = v, 0, 1);
+                    MenuAction(() => "Nullstill zoom og sentrer zoompunkt", () => ExecutePilotAction(RovPilotAction.ResetZoom));
+                    MenuToggle("Vis kontrollere", () => pilot.showControllers, v => pilot.showControllers = v);
+                    MenuToggle("Vis pekere utenfor menyen", () => pilot.showPointers, v => pilot.showPointers = v);
                     break;
                 case 1:
-                    MenuToggle("Detail window", () => pilot.detailEnabled, v => pilot.detailEnabled = v);
-                    MenuSlider("Left / right", () => pilot.detailPosition.x, v => pilot.detailPosition.x = v, -3, 3, " m");
-                    MenuSlider("Height", () => pilot.detailPosition.y, v => pilot.detailPosition.y = v, -2, 2, " m");
-                    MenuSlider("Distance", () => pilot.detailPosition.z, v => pilot.detailPosition.z = v, 0.6f, 4, " m");
-                    MenuSlider("Width", () => pilot.detailWidth, v => pilot.detailWidth = v, 0.3f, 2, " m");
-                    MenuSlider("Pitch", () => pilot.detailAngles.x, v => pilot.detailAngles.x = v, -60, 60, "°");
-                    MenuSlider("Yaw", () => pilot.detailAngles.y, v => pilot.detailAngles.y = v, -80, 80, "°");
-                    MenuSlider("Roll", () => pilot.detailAngles.z, v => pilot.detailAngles.z = v, -45, 45, "°");
+                    MenuToggle("Detaljvindu", () => pilot.detailEnabled, v => pilot.detailEnabled = v);
+                    MenuSlider("Venstre / høyre", () => pilot.detailPosition.x, v => pilot.detailPosition.x = v, -3, 3, " m");
+                    MenuSlider("Høyde", () => pilot.detailPosition.y, v => pilot.detailPosition.y = v, -2, 2, " m");
+                    MenuSlider("Avstand", () => pilot.detailPosition.z, v => pilot.detailPosition.z = v, 0.6f, 4, " m");
+                    MenuSlider("Bredde", () => pilot.detailWidth, v => pilot.detailWidth = v, 0.3f, 2, " m");
+                    MenuSlider("Vinkel opp / ned", () => pilot.detailAngles.x, v => pilot.detailAngles.x = v, -60, 60, "°");
+                    MenuSlider("Vinkel venstre / høyre", () => pilot.detailAngles.y, v => pilot.detailAngles.y = v, -80, 80, "°");
+                    MenuSlider("Helning", () => pilot.detailAngles.z, v => pilot.detailAngles.z = v, -45, 45, "°");
                     break;
                 case 2:
-                    MenuSlider("Image width", () => horizontalFov, v => { horizontalFov = v; ApplyGeometry(); }, 50, 150, "°");
-                    MenuSlider("Curvature", () => curveDegrees, v => { curveDegrees = v; ApplyGeometry(); }, 0, 150, "°");
-                    MenuSlider("Distance", () => distance, v => { distance = v; ApplyGeometry(); }, 1, 4, " m");
-                    MenuSlider("Screen height", () => verticalPositionMeters, v => { verticalPositionMeters = v; ApplyGeometry(); }, -2, 2, " m");
-                    MenuSlider("Pitch offset", () => verticalOffsetDegrees, v => { verticalOffsetDegrees = v; ApplyGeometry(); }, -25, 25, "°");
-                    MenuSlider("Roll offset", () => imageRollDegrees, v => { imageRollDegrees = v; ApplyGeometry(); }, -15, 15, "°");
-                    MenuToggle("Head following", () => headFollowingEnabled, SetHeadFollowingEnabled);
-                    MenuAction(() => "Recenter video and tilt", CenterViewAndTilt);
-                    MenuToggle("Left stick calibration", () => pilot.stickCalibrationEnabled, v => pilot.stickCalibrationEnabled = v);
+                    MenuSlider("Bildebredde", () => horizontalFov, v => { horizontalFov = v; ApplyGeometry(); }, 50, 150, "°");
+                    MenuSlider("Krumming", () => curveDegrees, v => { curveDegrees = v; ApplyGeometry(); }, 0, 150, "°");
+                    MenuSlider("Avstand", () => distance, v => { distance = v; ApplyGeometry(); }, 1, 4, " m");
+                    MenuSlider("Bildehøyde", () => verticalPositionMeters, v => { verticalPositionMeters = v; ApplyGeometry(); }, -2, 2, " m");
+                    MenuSlider("Bilde vinkel opp / ned", () => verticalOffsetDegrees, v => { verticalOffsetDegrees = v; ApplyGeometry(); }, -25, 25, "°");
+                    MenuSlider("Bilde helning", () => imageRollDegrees, v => { imageRollDegrees = v; ApplyGeometry(); }, -15, 15, "°");
+                    MenuToggle("Hodefølging", () => headFollowingEnabled, SetHeadFollowingEnabled);
+                    MenuAction(() => "Sentrer bilde og kameratilt", CenterViewAndTilt);
+                    MenuToggle("Kalibrering med venstre spak", () => pilot.stickCalibrationEnabled, v => pilot.stickCalibrationEnabled = v);
                     break;
                 case 3:
                     MenuToggle("HUD", () => hudEnabled, v => hudEnabled = v);
-                    MenuToggle("Compass", () => hudShowCompass, v => hudShowCompass = v);
-                    MenuToggle("Battery", () => hudShowBattery, v => hudShowBattery = v);
-                    MenuToggle("Depth", () => hudShowDepth, v => hudShowDepth = v);
-                    MenuToggle("Attitude", () => hudShowAttitude, v => hudShowAttitude = v);
-                    MenuToggle("FPS diagnostics", () => hudShowDiagnostics, v => hudShowDiagnostics = v);
-                    MenuSlider("Text scale", () => hudScale, v => hudScale = v, 0.7f, 1.5f, "x");
-                    MenuSlider("Opacity", () => hudOpacity, v => hudOpacity = v, 0.2f, 1);
-                    MenuAction(() => "Anchor: " + hudAnchorMode, () => hudAnchorMode = (RovHudAnchorMode)(((int)hudAnchorMode + 1) % 3));
+                    MenuToggle("Kompassring", () => hudShowCompass, v => hudShowCompass = v);
+                    MenuToggle("Dybde", () => hudShowDepth, v => hudShowDepth = v);
+                    MenuToggle("Kunstig horisont", () => hudShowAttitude, v => hudShowAttitude = v);
+                    MenuToggle("FPS-diagnostikk", () => hudShowDiagnostics, v => hudShowDiagnostics = v);
+                    MenuSlider("Tekststørrelse", () => hudScale, v => hudScale = v, 0.7f, 1.5f, "x");
+                    MenuSlider("Synlighet", () => hudOpacity, v => hudOpacity = v, 0.2f, 1);
+                    MenuAction(() => "Forankring: " + hudAnchorMode, () => hudAnchorMode = (RovHudAnchorMode)(((int)hudAnchorMode + 1) % 3));
                     break;
                 case 4:
                     MenuAction(() => "Instrument: " + CardNames[layoutCard] + "  >", () => layoutCard = (layoutCard + 1) % CardNames.Length);
-                    MenuSlider("Left / right", () => SelectedHudBox().position.x, v => SelectedHudBox().position.x = v, -2, 2, " m");
-                    MenuSlider("Height", () => SelectedHudBox().position.y, v => SelectedHudBox().position.y = v, -2, 2, " m");
-                    MenuSlider("Depth", () => SelectedHudBox().position.z, v => SelectedHudBox().position.z = v, 0.6f, 4, " m");
-                    MenuSlider("Scale", () => SelectedHudBox().scale, v => SelectedHudBox().scale = v, 0.5f, 2, "x");
-                    MenuSlider("Pitch", () => SelectedHudBox().angleOffset.x, v => SelectedHudBox().angleOffset.x = v, -60, 60, "°");
-                    MenuSlider("Yaw", () => SelectedHudBox().angleOffset.y, v => SelectedHudBox().angleOffset.y = v, -60, 60, "°");
-                    MenuSlider("Roll", () => SelectedHudBox().angleOffset.z, v => SelectedHudBox().angleOffset.z = v, -60, 60, "°");
-                    MenuToggle("Face viewing origin", () => SelectedHudBox().faceViewer, v => SelectedHudBox().faceViewer = v);
+                    MenuSlider("Venstre / høyre", () => SelectedHudBox().position.x, v => SelectedHudBox().position.x = v, -2, 2, " m");
+                    MenuSlider("Høyde", () => SelectedHudBox().position.y, v => SelectedHudBox().position.y = v, -2, 2, " m");
+                    MenuSlider("Dybde", () => SelectedHudBox().position.z, v => SelectedHudBox().position.z = v, 0.6f, 4, " m");
+                    MenuSlider("Størrelse", () => SelectedHudBox().scale, v => SelectedHudBox().scale = v, 0.5f, 2, "x");
+                    MenuSlider("Vinkel opp / ned", () => SelectedHudBox().angleOffset.x, v => SelectedHudBox().angleOffset.x = v, -60, 60, "°");
+                    MenuSlider("Vinkel venstre / høyre", () => SelectedHudBox().angleOffset.y, v => SelectedHudBox().angleOffset.y = v, -60, 60, "°");
+                    MenuSlider("Helning", () => SelectedHudBox().angleOffset.z, v => SelectedHudBox().angleOffset.z = v, -60, 60, "°");
+                    MenuToggle("Vend mot visningspunktet", () => SelectedHudBox().faceViewer, v => SelectedHudBox().faceViewer = v);
                     break;
                 case 5:
-                    MenuSlider("Compass radius", () => compassRadius, v => compassRadius = v, 1, 3, " m");
-                    MenuSlider("Compass drop", () => compassDrop, v => compassDrop = v, 0.4f, 1.8f, " m");
-                    MenuSlider("IMU smoothing (0=off)", () => telemetrySmoothingSeconds, v => telemetrySmoothingSeconds = v, 0, 0.2f, " s", "F3");
+                    MenuSlider("Kompassradius", () => compassRadius, v => compassRadius = v, 1, 3, " m");
+                    MenuSlider("Kompass under øyehøyde", () => compassDrop, v => compassDrop = v, 0.4f, 1.8f, " m");
+                    MenuSlider("IMU-utjevning (0 = av)", () => telemetrySmoothingSeconds, v => telemetrySmoothingSeconds = v, 0, 0.2f, " s", "F3");
                     if (tilt != null)
                     {
-                        MenuSlider("Servo smoothing (0=off)", () => tilt.ServoSmoothingSeconds, v => tilt.ServoSmoothingSeconds = v, 0, 0.5f, " s", "F3");
-                        MenuSlider("Servo speed", () => tilt.ServoMaximumSpeed, v => tilt.ServoMaximumSpeed = v, 5, 90, "°/s");
-                        MenuToggle("Pitch compensation", () => tilt.CompensateRovPitch, SetPitchCompensation);
-                        MenuSlider("Pitch compensation strength", () => tilt.PitchCompensationStrength, v => tilt.PitchCompensationStrength = v, 0, 1.5f, "x");
-                        MenuAction(() => tilt.RcControlSelected ? "Camera control: RC / select VR" : "Camera control: VR / select RC", () => tilt.SelectRcControl(!tilt.RcControlSelected));
-                        MenuAction(() => "Restore RC camera control", () => tilt.SelectRcControl(true));
+                        MenuSlider("Tiltutjevning (0 = av)", () => tilt.ServoSmoothingSeconds, v => tilt.ServoSmoothingSeconds = v, 0, 0.5f, " s", "F3");
+                        MenuSlider("Maksimal tiltfart", () => tilt.ServoMaximumSpeed, v => tilt.ServoMaximumSpeed = v, 5, 90, "°/s");
+                        MenuToggle("Kompenser ROV pitch", () => tilt.CompensateRovPitch, SetPitchCompensation);
+                        MenuSlider("Kompensasjonsstyrke", () => tilt.PitchCompensationStrength, v => tilt.PitchCompensationStrength = v, 0, 1.5f, "x");
+                        MenuAction(() => tilt.RcControlSelected ? "Kamera: RC / velg VR" : "Kamera: VR / velg RC", () => tilt.SelectRcControl(!tilt.RcControlSelected));
+                        MenuAction(() => "Gjenopprett RC-kamerastyring", () => tilt.SelectRcControl(true));
                     }
                     break;
                 case 6:
-                    BuildProfilePicker(false);
+                    BuildProfilePicker();
                     break;
                 case 12: BuildPilotHome(); break;
                 case 13: BuildControllerHelp(); break;
-                case 14: BuildProfilePicker(true); break;
+                case 14: BuildPilotHome(); break;
                 case 15: BuildProfileKeyboard(); break;
                 case 16: BuildAdvancedHome(); break;
                 case 10:
-                    MenuSlider("Menu pitch", () => pilot.menuAngles.x, v => { pilot.menuAngles.x = v; ApplyMenuPlacement(); }, -60, 60, "°");
-                    MenuSlider("Menu yaw", () => pilot.menuAngles.y, v => { pilot.menuAngles.y = v; ApplyMenuPlacement(); }, -80, 80, "°");
-                    MenuSlider("Menu left / right", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
-                    MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
-                    MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
-                    MenuAction(() => "Reset menu angles", () => { pilot.menuAngles = Vector2.zero; ApplyMenuPlacement(); });
-                    MenuAction(() => "Place menu in front of me", PositionPilotMenu);
+                    MenuSlider("Menyvinkel opp / ned", () => pilot.menuAngles.x, v => { pilot.menuAngles.x = v; ApplyMenuPlacement(); }, -60, 60, "°");
+                    MenuSlider("Menyvinkel venstre / høyre", () => pilot.menuAngles.y, v => { pilot.menuAngles.y = v; ApplyMenuPlacement(); }, -80, 80, "°");
+                    MenuSlider("Meny venstre / høyre", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
+                    MenuSlider("Menyhøyde", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
+                    MenuSlider("Menyavstand", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
+                    MenuAction(() => "Nullstill menyvinkler", () => { pilot.menuAngles = Vector2.zero; ApplyMenuPlacement(); });
+                    MenuAction(() => "Flytt menyen foran meg", PositionPilotMenu);
                     break;
                 case 11:
-                    MenuAction(() => recorder != null && recorder.Recording ? "STOP recording" : "START recording", ToggleRecording);
+                    MenuAction(() => recorder != null && recorder.Recording ? "STOPP opptak" : "START opptak", ToggleRecording);
                     MenuAction(() => RecordingStatus, () => {});
-                    MenuToggle("PC mirror + HUD (off = clean video)", () => pilot.recordPresentation, v => pilot.recordPresentation = v);
-                    MenuToggle("Full HD (off = 720p) / 30 fps", () => pilot.recordFullHd, v => pilot.recordFullHd = v);
-                    MenuToggle("Flip recording vertically", () => pilot.recordFlipVertical, v => pilot.recordFlipVertical = v);
-                    MenuAction(() => "Save settings", SaveCalibration);
+                    MenuToggle("PC-visning + HUD (av = ren video)", () => pilot.recordPresentation, v => pilot.recordPresentation = v);
+                    MenuToggle("Full HD (av = 720p) / 30 fps", () => pilot.recordFullHd, v => pilot.recordFullHd = v);
+                    MenuToggle("Vend opptaket vertikalt", () => pilot.recordFlipVertical, v => pilot.recordFlipVertical = v);
+                    MenuAction(() => "Lagre til neste oppstart", SaveCalibration);
                     break;
                 case 7:
-                    MenuAction(() => "Action: " + pilot.bindings[bindingIndex].action + "  >", () => bindingIndex = (bindingIndex + 1) % pilot.bindings.Length);
-                    MenuAction(() => "Controller: " + pilot.bindings[bindingIndex].button + "  >", () => CycleBinding(pilot.bindings[bindingIndex], false));
-                    MenuAction(() => "Keyboard: " + pilot.bindings[bindingIndex].key + "  >", () => CycleBinding(pilot.bindings[bindingIndex], true));
-                    MenuAction(() => "Restore default bindings", () => { pilot.bindings = RovPilotSettings.Defaults(); ResetPilotInputEdges(); });
+                    MenuAction(() => "Handling: " + pilot.bindings[bindingIndex].action + "  >", () => bindingIndex = (bindingIndex + 1) % pilot.bindings.Length);
+                    MenuAction(() => "Kontroller: " + pilot.bindings[bindingIndex].button + "  >", () => CycleBinding(pilot.bindings[bindingIndex], false));
+                    MenuAction(() => "Tastatur: " + pilot.bindings[bindingIndex].key + "  >", () => CycleBinding(pilot.bindings[bindingIndex], true));
+                    MenuAction(() => "Gjenopprett standard knappevalg", () => { pilot.bindings = RovPilotSettings.Defaults(); ResetPilotInputEdges(); });
                     break;
                 case 8:
-                    MenuSlider("Horizontal sensitivity", () => pilot.pointerYawSensitivity, v => pilot.pointerYawSensitivity = v, 0.4f, 2.5f, "x");
-                    MenuSlider("Vertical sensitivity", () => pilot.pointerPitchSensitivity, v => pilot.pointerPitchSensitivity = v, 0.4f, 2.5f, "x");
-                    MenuSlider("Aim pitch (+ up)", () => pilot.pointerPitchOffset, v => pilot.pointerPitchOffset = v, -45, 45, "°");
-                    MenuSlider("Aim yaw", () => pilot.pointerYawOffset, v => pilot.pointerYawOffset = v, -30, 30, "°");
-                    MenuSlider("Pointer smoothing (0=off)", () => pilot.pointerSmoothingSeconds, v => pilot.pointerSmoothingSeconds = v, 0, 0.15f, " s", "F3");
+                    MenuSlider("Vannrett følsomhet", () => pilot.pointerYawSensitivity, v => pilot.pointerYawSensitivity = v, 0.4f, 2.5f, "x");
+                    MenuSlider("Loddrett følsomhet", () => pilot.pointerPitchSensitivity, v => pilot.pointerPitchSensitivity = v, 0.4f, 2.5f, "x");
+                    MenuSlider("Pekervinkel (+ opp)", () => pilot.pointerPitchOffset, v => pilot.pointerPitchOffset = v, -45, 45, "°");
+                    MenuSlider("Pekervinkel venstre / høyre", () => pilot.pointerYawOffset, v => pilot.pointerYawOffset = v, -30, 30, "°");
+                    MenuSlider("Pekerutjevning (0 = av)", () => pilot.pointerSmoothingSeconds, v => pilot.pointerSmoothingSeconds = v, 0, 0.15f, " s", "F3");
                     MenuAction(() => "Sentrer VENSTRE peker mot menyen", () => CenterPointer(0));
                     MenuAction(() => "Sentrer HØYRE peker mot menyen", () => CenterPointer(1));
-                    MenuToggle("Controller models", () => pilot.showControllers, v => pilot.showControllers = v);
-                    MenuToggle("Pointers outside menu", () => pilot.showPointers, v => pilot.showPointers = v);
+                    MenuToggle("Vis kontrollere", () => pilot.showControllers, v => pilot.showControllers = v);
+                    MenuToggle("Vis pekere utenfor menyen", () => pilot.showPointers, v => pilot.showPointers = v);
                     break;
                 case 9:
-                    MenuToggle("Grab windows", () => pilot.windowDraggingEnabled, v => pilot.windowDraggingEnabled = v);
-                    MenuAction(() => "Grab button: " + pilot.windowGrabButton, () => pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3));
-                    MenuSlider("Stick move speed", () => pilot.windowMoveSpeed, v => pilot.windowMoveSpeed = v, 0.1f, 2f, " m/s");
-                    MenuSlider("Stick rotation speed", () => pilot.windowRotateSpeed, v => pilot.windowRotateSpeed = v, 10f, 120f, " deg/s");
-                    MenuToggle("Also follow hand ray", () => pilot.windowFollowHand, v => pilot.windowFollowHand = v);
-                    MenuSlider("Menu left / right", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
-                    MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
-                    MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
-                    MenuAction(() => "Place menu in front of me", PositionPilotMenu);
+                    MenuToggle("Tillat flytting av vinduer", () => pilot.windowDraggingEnabled, v => pilot.windowDraggingEnabled = v);
+                    MenuAction(() => "Gripeknapp: " + pilot.windowGrabButton, () => pilot.windowGrabButton = (RovWindowGrabButton)(((int)pilot.windowGrabButton + 1) % 3));
+                    MenuSlider("Flyttefart med spak", () => pilot.windowMoveSpeed, v => pilot.windowMoveSpeed = v, 0.1f, 2f, " m/s");
+                    MenuSlider("Vinkelfart med spak", () => pilot.windowRotateSpeed, v => pilot.windowRotateSpeed = v, 10f, 120f, " deg/s");
+                    MenuToggle("Følg også håndens peker", () => pilot.windowFollowHand, v => pilot.windowFollowHand = v);
+                    MenuSlider("Meny venstre / høyre", () => pilot.menuSide, v => { pilot.menuSide = v; ApplyMenuPlacement(); }, -2, 2, " m");
+                    MenuSlider("Menyhøyde", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
+                    MenuSlider("Menyavstand", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
+                    MenuAction(() => "Flytt menyen foran meg", PositionPilotMenu);
                     break;
             }
             RefreshMenuText();

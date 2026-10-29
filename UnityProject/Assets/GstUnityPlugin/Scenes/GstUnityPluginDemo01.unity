@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
   - component: {fileID: 330585549}
+  - component: {fileID: 330585550}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -224,8 +225,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
   m_RequiresOpaqueTextureOption: 2
@@ -268,8 +269,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5a2a9c34df4095f47b9ca8f975175f5b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   m_Device: 0
   m_PoseSource: 2
   m_PoseProviderComponent: {fileID: 0}
@@ -286,8 +287,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e3eac58e90c6c074ca84863889f32596, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   blueOsUrl: http://192.168.2.2:6040
   sendRate: 20
   minimumPitch: -35
@@ -297,9 +298,21 @@ MonoBehaviour:
   deadZone: 0.5
   smoothingSeconds: 0.12
   maximumSpeed: 45
-  showDesktopStatus: 1
+  showDesktopStatus: 0
   compensateRovPitch: 1
   pitchCompensationStrength: 0.5
+--- !u!114 &330585550
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72b380ce15aa49c5a099fbeab3df716b, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
 --- !u!1 &410087039
 GameObject:
   m_ObjectHideFlags: 0
@@ -408,8 +421,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   m_Version: 3
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -571,8 +584,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4994dc73dbe0baa46a1ff7e44330187d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   width: 42.12
   height: 23.6925
   curveDegrees: 130
@@ -598,8 +611,67 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7bd69623d36341c187dd1adf11d40fd0, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
+  pilot:
+    mainZoom: 1
+    detailZoom: 3
+    zoomCenter: {x: 0.5, y: 0.5}
+    detailEnabled: 0
+    showControllers: 1
+    showPointers: 1
+    detailPosition: {x: 1.5, y: 0.1, z: 1.8}
+    detailWidth: 0.8
+    detailAngles: {x: 0, y: 25, z: 0}
+    menuDistance: 1.25
+    menuHeight: -0.05
+    menuSide: 0
+    windowDraggingEnabled: 1
+    windowGrabButton: 0
+    windowMoveSpeed: 0.6
+    windowRotateSpeed: 45
+    windowFollowHand: 0
+    menuAngles: {x: 0, y: 0}
+    recordPresentation: 1
+    recordFullHd: 0
+    recordFlipVertical: 1
+    pointerYawSensitivity: 1.2
+    pointerPitchSensitivity: 0.8
+    pointerPitchOffset: 0
+    pointerYawOffset: 0
+    pointerSmoothingSeconds: 0.025
+    stickCalibrationEnabled: 1
+    bindings:
+    - action: 0
+      button: 3
+      key: 0
+    - action: 1
+      button: 4
+      key: 17
+    - action: 2
+      button: 1
+      key: 13
+    - action: 3
+      button: 2
+      key: 5
+    - action: 4
+      button: 6
+      key: 3
+    - action: 5
+      button: 12
+      key: 14
+    - action: 6
+      button: 13
+      key: 15
+    - action: 7
+      button: 9
+      key: 16
+    - action: 8
+      button: 0
+      key: 18
+    - action: 9
+      button: 0
+      key: 2
   eye: {fileID: 330585546}
   tilt: {fileID: 330585549}
   horizontalFov: 110.9
@@ -624,35 +696,35 @@ MonoBehaviour:
   hudOpacity: 0.85
   hudLayout:
     status:
-      position: {x: 0, y: 0.65, z: 2.2}
+      position: {x: 0, y: 0.7, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
     battery:
-      position: {x: -0.8, y: -0.42, z: 2}
+      position: {x: -0.92, y: -0.47, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
     depth:
-      position: {x: 0.8, y: 0.18, z: 2}
+      position: {x: 0.92, y: -0.47, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
     cameraTilt:
-      position: {x: -0.8, y: 0.18, z: 2}
+      position: {x: -0.92, y: 0.38, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
     attitude:
-      position: {x: 0.8, y: -0.42, z: 2}
+      position: {x: 0.92, y: 0.38, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
     diagnostics:
-      position: {x: 0, y: -0.7, z: 2.2}
+      position: {x: 0, y: -0.7, z: 2}
       angleOffset: {x: 0, y: 0, z: 0}
       scale: 1
-      faceViewer: 1
+      faceViewer: 0
   verticalOffsetDegrees: -2.5
   followHeadRoll: 0
   imageRollDegrees: 0
@@ -686,8 +758,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 172515602e62fb746b5d573b38a5fe58, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   m_IsGlobal: 1
   priority: 0
   blendDistance: 0
@@ -767,8 +839,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a2483b9bd782f9449a5972b61b7d51a9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   m_CameraFloorOffsetObject: {fileID: 1347148701}
   m_RequestedTrackingMode: 0
   m_TrackingOriginMode: 1

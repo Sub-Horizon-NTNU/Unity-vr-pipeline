@@ -8,12 +8,11 @@ namespace ROVVR
     public sealed partial class RovVideoViewCalibration
     {
         private bool startupPending, startupInitialized;
-        private string startupChoice = "", activeProfileName = "", namingSource;
+        private string activeProfileName = "", namingSource;
         private string namingDraft = "", namingError = "";
         private int profileOffset, helpTab;
         private bool keyboardShift = true;
         private Text namingDisplay;
-        private Vector2 startupScroll;
         private bool flatMenuPreview;
         private readonly Color pilotAccent = new Color(0.22f, 0.87f, 0.9f);
         private readonly Color pilotMuted = new Color(0.56f, 0.69f, 0.77f);
@@ -26,8 +25,20 @@ namespace ROVVR
         }
         private void UpdatePilotStartup()
         {
-            if (!startupInitialized || !startupPending || pilotMenuOpen) return;
-            if (!XRSettings.isDeviceActive || IsHeadReady()) TogglePilotMenu();
+            if (tilt == null) return;
+            TryCompleteAutomaticStartup(XRSettings.isDeviceActive, IsHeadReady(), tilt.ControlFocused,
+                tilt.HeadTracked, tilt.BlueOsLive,
+                !tilt.HeadFollowingEnabled || !tilt.CompensateRovPitch || tilt.AttitudeLive);
+        }
+        // Readiness releases only the startup gate. The controller retains RC ownership,
+        // neutral calibration, acknowledgement, interruption and recovery decisions.
+        private bool TryCompleteAutomaticStartup(bool xrActive, bool headReady, bool controlFocused,
+            bool headTracked, bool rovLive, bool attitudeReady)
+        {
+            if (!startupInitialized || !startupPending || !xrActive || !headReady
+                || !controlFocused || !headTracked || !rovLive || !attitudeReady) return false;
+            CompletePilotStartup("");
+            return true;
         }
         private void CompletePilotStartup(string name)
         {
@@ -35,8 +46,7 @@ namespace ROVVR
             startupPending = false;
             if (tilt != null) tilt.StartupSelectionPending = false;
             pilotMessage = "Klar. Se rett frem og trykk " + BindingText(RovPilotAction.Center) + " for å sentrere.";
-            pilotMenuOpen = false;
-            if (pilotMenuRoot != null) pilotMenuRoot.gameObject.SetActive(false);
+            // An explicitly opened settings panel stays open when the connection becomes ready.
             ResetPilotInputEdges();
         }
         private void GoPilotPage(int page)
@@ -67,11 +77,11 @@ namespace ROVVR
         }
         private string PageHint()
         {
-            if (startupPending) return "Høyre avtrekker velger. Venstre avtrekker + spak flytter.\nHold begge grip 0,7 s: rett opp meny og pekere. Tilten venter.";
-            if (pilotPage == 13) return "Oversikten bruker dine aktive knappevalg.\nBytt del øverst. Hjem tar deg tilbake.";
+            if (startupPending) return "Starter automatisk når headset, VR-fokus og ROV er klare.\n" + (tilt == null ? "Kamerastyring er ikke tilkoblet." : tilt.Status);
+            if (pilotPage == 13) return "Oversikten bruker dine aktive knappevalg.\nTilbake tar deg til innstillingene.";
             if (pilotPage == 6 || pilotPage == 15) return "Profiler inneholder bilde, HUD og knappevalg.\nLagre en ny profil før du deler eller endrer et oppsett.";
-            if (pilotPage == 12) return "Pek og velg med høyre avtrekker.\nVenstre avtrekker griper menyen. ? Hjelp forklarer mer.";
-            return "Endringer vises med en gang. Lagre oppsettet i Profiler.\nHjem: oversikt   /   ? Hjelp: kontroller og flytting";
+            if (pilotPage == 12) return BindingText(RovPilotAction.Menu) + ": tilbake til pilotvisning.\nHodefølging styrer bare kameraet. Armering styres separat.";
+            return "Endringer vises med en gang. Lagre for å beholde dem.\nTilbake: alle innstillinger / Lukk: pilotvisning";
         }
         private PilotMenuItem PilotCard(string title, string subtitle, float x, float y, float width, float height, Action select, bool selected = false)
         {
@@ -88,53 +98,63 @@ namespace ROVVR
         }
         private void BuildPilotHome()
         {
-            var profile = PilotLabel(pilotMenuPage, "PROFIL  /  " + ProfileLabel, 0, 285, 820, 38, 21); profile.color = pilotMuted;
-            PilotCard("Profiler", "Velg pilot, lagre eller gi nytt navn", -212, 180, 396, 126, () => GoPilotPage(6));
-            PilotCard("Kontroller og hjelp", "Knappene, menyen og flytting", 212, 180, 396, 126, () => GoPilotPage(13));
-            PilotCard("Zoom og inspeksjon", "Forstørr bildet og vis detaljvindu", -212, 25, 396, 126, () => GoPilotPage(0));
-            PilotCard("Instrumenter", "Visning, lesbarhet og HUD", 212, 25, 396, 126, () => GoPilotPage(3));
-            PilotCard("Videoopptak", "Start / stopp og velg opptakskilde", -212, -130, 396, 126, () => GoPilotPage(11));
-            PilotCard("Tilpass oppsettet", "Bilde, plassering og avanserte valg", 212, -130, 396, 126, () => GoPilotPage(16));
-            PilotCard("Lagre oppstartsoppsett", "Behold dagens innstillinger til neste gang", 0, -258, 820, 76, SaveCalibration);
+            PilotLabel(pilotMenuPage, ProfileLabel, 0, 285, 820, 38, 20).color = pilotMuted;
+            QuickSetting(() => "SENTRER OG TILBAKE", -212, 210, () => { CenterViewAndTilt(); TogglePilotMenu(); });
+            QuickSetting(() => headFollowingEnabled ? "HODEFØLGING: PÅ / LÅS" : "KAMERA LÅST / FØLG HODET", 212, 210,
+                () => SetHeadFollowingEnabled(!headFollowingEnabled));
+            QuickSetting(() => hudEnabled ? "HUD: PÅ / SKJUL" : "HUD: AV / VIS", -212, 105, () => hudEnabled = !hudEnabled);
+            QuickSetting(() => recorder != null && recorder.Recording ? "STOPP OPPTAK" : "START OPPTAK", 212, 105, ToggleRecording);
+            var zoom = MenuButton(pilotMenuPage, "", 0, 0, 820, 62, () => {});
+            zoom.caption = () => "ZOOM   " + pilot.mainZoom.ToString("F2") + "x   [ −       + ]";
+            zoom.drag = true; zoom.select = x => pilot.mainZoom = Mathf.Lerp(1f, 8f, Mathf.Clamp01(x));
+            if (tilt != null) QuickSetting(() => tilt.RcControlSelected ? "KAMERA: RC / VELG VR" : "KAMERA: VR / VELG RC", -212, -105,
+                () => tilt.SelectRcControl(!tilt.RcControlSelected));
+            QuickSetting(() => "HUD OG LESBARHET", 212, -105, () => GoPilotPage(3));
+            QuickSetting(() => "ALLE INNSTILLINGER", -212, -230, () => GoPilotPage(16));
+            QuickSetting(() => "LAGRE TIL NESTE OPPSTART", 212, -230, SaveCalibration);
+        }
+        private void QuickSetting(Func<string> caption, float x, float y, Action action)
+        {
+            var item = MenuButton(pilotMenuPage, "", x, y, 396, 82, action);
+            item.caption = caption;
+            item.label.resizeTextForBestFit = true;
+            item.label.resizeTextMinSize = 18; item.label.resizeTextMaxSize = 24;
         }
         private void BuildAdvancedHome()
         {
-            int[] pages = {2, 1, 4, 5, 8, 9, 10, 7};
-            string[] notes = {"Størrelse, høyde og krumming", "Plassering og vinkler", "Flytt hver instrumentboks", "VR/RC, kompensasjon og utjevning", "Sikteretning og følsomhet", "Flytte- og rotasjonshastighet", "Høyde, avstand, pitch og yaw", "Tilpass knapper og tastatur"};
-            for (int i = 0; i < pages.Length; i++) { int page = pages[i]; PilotCard(PilotPages[page], notes[i], i % 2 == 0 ? -212 : 212, 225 - (i / 2) * 138, 396, 116, () => GoPilotPage(page)); }
+            int[] pages = {2, 0, 3, 5, 6, 7, 1, 4, 8, 9, 10, 11, 13};
+            for (int i = 0; i < pages.Length; i++)
+            {
+                int page = pages[i];
+                MenuButton(pilotMenuPage, PilotPages[page], i % 2 == 0 ? -212 : 212,
+                    275 - (i / 2) * 85, 396, 70, () => GoPilotPage(page));
+            }
         }
-        private void BuildProfilePicker(bool startup)
+        private void BuildProfilePicker()
         {
             RefreshProfiles();
-            string chosen = startup ? startupChoice : profileNames.Length == 0 ? "" : SelectedProfileName;
-            PilotLabel(pilotMenuPage, startup ? "VELG ET OPPSETT FØR DU STARTER" : "AKTIVT OPPSETT  /  " + ProfileLabel, 0, 283, 820, 38, 20).color = pilotMuted;
-            if (startup) PilotCard("Sist lagrede oppsett", "Bruk innstillingene fra forrige oppstart", 0, 214, 820, 86,
-                () => { startupChoice = ""; BuildMenuPage(); }, string.IsNullOrEmpty(chosen));
-            int firstY = startup ? 115 : 214;
+            string chosen = profileNames.Length == 0 ? "" : SelectedProfileName;
+            PilotLabel(pilotMenuPage, "AKTIVT OPPSETT  /  " + ProfileLabel, 0, 283, 820, 38, 20).color = pilotMuted;
+            int firstY = 214;
             for (int i = profileOffset; i < Math.Min(profileOffset + 3, profileNames.Length); i++)
             {
                 int index = i; string name = profileNames[i];
                 PilotCard(RovProfileLibrary.FriendlyName(name), name == activeProfileName ? "Aktiv profil" : "Bilde, instrumenter og knappevalg", 0, firstY - (i - profileOffset) * 94, 820, 82,
-                    () => { selectedProfile = index; startupChoice = name; BuildMenuPage(); }, chosen == name);
+                    () => { selectedProfile = index; BuildMenuPage(); }, chosen == name);
             }
-            if (profileNames.Length == 0) PilotLabel(pilotMenuPage, "Ingen navngitte profiler ennå.\nDu kan lagre ditt eget oppsett fra Profiler senere.", 0, startup ? 30 : 100, 780, 100, 24).color = pilotMuted;
+            if (profileNames.Length == 0) PilotLabel(pilotMenuPage, "Ingen navngitte profiler ennå.\nDu kan lagre ditt eget oppsett her.", 0, 100, 780, 100, 24).color = pilotMuted;
             if (profileNames.Length > 3)
             {
-                float navY = startup ? -190 : -100;
+                float navY = -100;
                 MenuButton(pilotMenuPage, "< Forrige", -290, navY, 220, 48, () => { profileOffset = Math.Max(0, profileOffset - 3); BuildMenuPage(); });
                 PilotLabel(pilotMenuPage, $"{profileOffset + 1}–{Math.Min(profileOffset + 3, profileNames.Length)} av {profileNames.Length}", 0, navY, 250, 48, 20);
                 MenuButton(pilotMenuPage, "Neste >", 290, navY, 220, 48, () => { if (profileOffset + 3 < profileNames.Length) profileOffset += 3; BuildMenuPage(); });
             }
-            if (startup)
-                PilotCard("START MED VALGT OPPSETT", string.IsNullOrEmpty(chosen) ? "Sist lagrede oppsett · se rett frem" : RovProfileLibrary.FriendlyName(chosen) + " · se rett frem", 0, -268, 820, 86, () => CompletePilotStartup(startupChoice), true);
-            else
-            {
-                MenuButton(pilotMenuPage, "LAST VALGT", -280, -190, 250, 64, () => { if (profileNames.Length > 0) LoadNamedProfile(SelectedProfileName); });
-                MenuButton(pilotMenuPage, "NY PROFIL", 0, -190, 250, 64, () => BeginProfileName(null));
-                MenuButton(pilotMenuPage, "GI NYTT NAVN", 280, -190, 250, 64, () => { if (profileNames.Length > 0) BeginProfileName(SelectedProfileName); });
-                // Saving never overwrites an unrelated selected file: use the active named profile.
-                MenuButton(pilotMenuPage, "LAGRE ENDRINGER I AKTIV PROFIL", 0, -270, 820, 56, () => { if (string.IsNullOrEmpty(activeProfileName)) BeginProfileName(null); else SaveNamedProfile(activeProfileName); });
-            }
+            MenuButton(pilotMenuPage, "LAST VALGT", -280, -190, 250, 64, () => { if (profileNames.Length > 0) LoadNamedProfile(SelectedProfileName); });
+            MenuButton(pilotMenuPage, "NY PROFIL", 0, -190, 250, 64, () => BeginProfileName(null));
+            MenuButton(pilotMenuPage, "GI NYTT NAVN", 280, -190, 250, 64, () => { if (profileNames.Length > 0) BeginProfileName(SelectedProfileName); });
+            // Saving never overwrites an unrelated selected file: use the active named profile.
+            MenuButton(pilotMenuPage, "LAGRE ENDRINGER I AKTIV PROFIL", 0, -270, 820, 56, () => { if (string.IsNullOrEmpty(activeProfileName)) BeginProfileName(null); else SaveNamedProfile(activeProfileName); });
         }
         private void BeginProfileName(string rename)
         {
@@ -266,16 +286,13 @@ namespace ROVVR
         private void DrawStartupDesktop()
         {
             if (!startupPending) return;
-            GUILayout.Label("VELKOMMEN / VELG PROFIL");
-            if (GUILayout.Button("Start med sist lagrede oppsett")) CompletePilotStartup("");
-            startupScroll = GUILayout.BeginScrollView(startupScroll, GUILayout.MaxHeight(300));
-            foreach (string name in profileNames) if (GUILayout.Button("Start: " + RovProfileLibrary.FriendlyName(name))) CompletePilotStartup(name);
-            GUILayout.EndScrollView();
-            GUILayout.Label("Kameratilten venter til du har valgt Start.");
+            GUILayout.Label("ATLAS / AUTOMATISK OPPSTART");
+            GUILayout.Label("Bruker sist lagrede oppsett. Koble til Quest Link og ROV.\nKamerastyring starter når VR-fokus, sporing og telemetri er klare.");
+            if (tilt != null) GUILayout.Label(tilt.Status);
         }
         private void DrawStartupOverlay()
         {
-            if (!startupPending || flatMenuPreview) return;
+            if (!startupPending || flatMenuPreview || XRSettings.isDeviceActive) return;
             GUILayout.BeginArea(new Rect(Mathf.Max(12, Screen.width - 540), 24, 510, Mathf.Min(500, Screen.height - 48)), GUI.skin.box);
             DrawStartupDesktop();
             GUILayout.EndArea();

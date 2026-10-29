@@ -1,7 +1,9 @@
 # Zoom, pilotmeny og profiler
 
-Disse funksjonene inngår i v2. Den publiserte v1-builden er uendret.
-Last ned v2 fra GitHub Releases, pakk ut hele mappen og kjør `Start-v2.cmd`.
+V3 adds automatic startup, quick settings, a compact green FPV HUD and room
+passthrough to the zoom/profile tools introduced in v2. Use v3 or the current
+Unity source for these features; downloading the older v2 release does not
+include them. See [v3 release notes and validation](RELEASE_v3.md).
 
 Separat Windows-testbuild: **ROV → Release → Build Windows pilot tools preview**,
 deretter `./scripts/Prepare-PilotPreview.ps1` fra repoets toppmappe. Skriptet
@@ -50,9 +52,13 @@ hvis dere ønsker å låse kameraet mens innstillinger justeres.
 Pek med høyre kontroller og trykk høyre avtrekker. På verdifelt kan du holde
 avtrekkeren og dra venstre/høyre over feltet. Feltet beholdes under draget,
 så en liten bevegelse opp/ned ikke begynner å justere raden ved siden av.
-Menyen åpner på **Hjem**, med kort for Profiler, Kontroller og hjelp, Zoom,
-Instrumenter, Videoopptak og Tilpass oppsettet. **Hjem** og **? Hjelp** ligger
-alltid nederst. Detaljvalgene under finnes via kortene og Tilpass oppsettet:
+The menu always opens on **PILOTINNSTILLINGER**, a quick panel for recentering
+and returning to the pilot view, head-follow/hold, HUD visibility, recording,
+zoom, explicit RC/VR camera ownership, readability and saving for next startup.
+**ALLE INNSTILLINGER** opens one catalog with direct access to every advanced
+page. **TILBAKE** returns from a detail page to that catalog, then to quick
+settings. **LUKK / PILOTVISNING** closes from any page, including while startup
+is waiting for a connection. Advanced pages retain these functions:
 
 1. **Zoom:** hovedzoom, detaljvindu, detaljzoom, målpunkt og kontrollervisning.
 2. **Detail placement:** plassering, størrelse og vinkling av detaljvinduet.
@@ -66,13 +72,37 @@ alltid nederst. Detaljvalgene under finnes via kortene og Tilpass oppsettet:
 10. **Move windows:** gripeknapp, flyttehastighet og menyplassering.
 11. **Menu placement:** menyens pitch, yaw, høyde, sideplassering og avstand.
 12. **Recording:** start/stopp MP4-opptak, opptakskilde, oppløsning og vertikal vending.
+13. **KONTROLLER OG HJELP:** current controller bindings and menu/window help.
 
-Etter profilvalget ved oppstart kan menyen lukkes med LUKK, også etter ombinding av menyknappen.
+There is no mandatory startup profile picker. Closing and reopening settings
+always returns to the quick panel, including after rebinding the menu button.
 Venstre spaks bildejustering og øvrige pilotsnarveier er sperret mens menyen
 er åpen. Pekerne vises i menyen selv om de er skjult under vanlig pilotering.
 
 Spakknoppen viser faktisk spakutslag. Modellene og pekerne har separate av/på-valg.
 Systemknapper som Quest/Meta eies av runtime og kan ikke ombindes av programmet.
+
+## FPV pilot information (after v2)
+
+At **1×**, a short green horizon and at most two nearby pitch references overlay
+the Atlas video; the existing compass circle is retained. The line spans about
+30° and the short references about 12° at the tested display geometry, with
+lighter decoration to keep the image clear. The cue estimates camera attitude
+from the ROV IMU and reported mount target, using the configured display FOV;
+it is not physical servo feedback or calibrated lens geometry.
+
+Main-video zoom hides the horizon lines and labels and shows
+`HORIZON AT 1× ONLY`. The fixed reticle, pilot information and compass remain.
+Returning to 1× restores the cue only with fresh pose data; missing data shows
+`HORIZON UNAVAILABLE`. Detail-window zoom alone does not hide the main cue.
+
+While the HUD is enabled, battery, arm state, **PILOT GAIN** and **LIGHT CMD**
+remain visible. Gain is the vehicle's live joystick gain. L1/L2 are commanded
+light outputs, with zero displayed as OFF, not measured lamp brightness.
+Unavailable or stale values show a dash; battery percent is not inferred from
+voltage. B still hides the entire HUD. **HUD OG LESBARHET** controls presentation;
+see [HUD geometry and telemetry](https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline/blob/v3/UnityProject/Assets/ROV/VIDEO_VIEW.md#flytende-pilot-hud)
+for field meanings and calibration limits.
 
 ## Peker og flytting av vinduer
 
@@ -124,10 +154,11 @@ Under **Pointers** kan dere justere:
 
 ## Profiler på PC og i VR
 
-I **ROV → View → Manual calibration**, eller **F4** i Play/build, utvid
-**Zoom / VR menu / profiles / bindings**. Skriv et navn og velg **Save named
-profile**. Listen under har en last-knapp for hver profil. «Refresh profile
-list» finner filer som er kopiert inn fra en annen PC.
+In **ROV → View → Manual calibration**, or the legacy **F4** panel while XR is
+inactive, expand **Zoom / VR menu / profiles / bindings**. During active XR,
+use right-stick click/F3 settings; the duplicate desktop overlay is hidden.
+Enter a name and choose **Save named profile**. The list can load each profile;
+**Refresh profile list** finds files copied from another PC.
 
 I VR: **Profiler → Ny profil** åpner et lite skjermtastatur med Æ/Ø/Å,
 sletting og navneforslag som Pilotprofil, Inspeksjon og Oversikt. Nye navn
@@ -227,10 +258,12 @@ til menyens retning ved åpning og lagres med **Save startup JSON** eller en pro
 
 ## VR-prioritet og RC-håndover (etter v2)
 
-VR beholder kamerakontrollen til piloten velger **Camera control: RC** på
-**Compass / Tilt**-siden, PC-statusknappen eller P. A låser fortsatt skjermen
-og tiltmålet; A gir ikke håndkontrolleren kontroll. Velg VR igjen for å overta.
-Hodekalibreringen bevares ved avbrudd og RC/VR-bytte; X/R sentrerer eksplisitt.
+VR retains camera ownership until the pilot selects **KAMERA: VR / VELG RC**
+in quick settings or presses **P**. The same choice is available under
+**ALLE INNSTILLINGER → KAMERA OG KOMPASS**. When RC is selected, choose
+**KAMERA: RC / VELG VR** to take over again. A only holds the screen and tilt
+target; it does not hand control to RC. Interruptions and RC/VR switching
+preserve head calibration; X/R explicitly recenter.
 
 Før VR får sende tiltmål leses RC1–RC16_OPTION. Bare kamerafunksjonene
 212 (roll), 213 (pitch) og 214 (yaw) sperres med verdi 0. På dagens ROV er
@@ -246,9 +279,9 @@ Ved RC-valg/normal avslutning gjenopprettes og kontrolleres verdiene. Ved feil
 beholdes gjenopprettingsfilen og feilen vises; VR starter ikke på en ubekreftet
 sperre. Eksterne endringer til andre verdier overskrives ikke automatisk.
 
-Et strømbrudd, en krasj eller avslutning av Play kan avbryte gjenopprettingen.
-Bruk da **Restore RC camera control** i VR-menyen / RC-knappen på PC, eller
-stopp Play og velg **ROV → Restore camera RC mappings from recovery file**.
+Power loss, a crash or stopping Play can interrupt restoration. In VR use
+**ALLE INNSTILLINGER → KAMERA OG KOMPASS → Gjenopprett RC-kamerastyring**,
+or stop Play and select **ROV → Restore camera RC mappings from recovery file**.
 Neste VR-overtakelse gjenoppretter også en uferdig journal før et nytt øyeblikksbilde.
 Behold journalen og bruk samme PC og BlueOS-adresse til verdiene er tilbakeført.
 Hvis journalen er utilgjengelig, må de dokumenterte originalverdiene gjenopprettes
@@ -259,7 +292,8 @@ Ved mistet fokus, tracking, heartbeat eller fersk IMU stoppes nye tiltmål uten
 ferskt rapportert tiltmål som start for den eksisterende hastighetsbegrensningen.
 ACK må være ny, for riktig kommando og avsender; bufrede ACK-er teller bare én gang.
 Fire sekunder uten ny godkjenning stopper sending og utløser eksisterende begrensede
-forsøk. PC-status viser siste stoppårsak, ACK-alder, HTTP-sendeteller og PWM11.
+forsøk. Optional desktop diagnostics show the last stop reason, ACK age, HTTP
+send count and PWM11; the shipped scene hides that diagnostic panel by default.
 Rapportert vinkel/PWM er autopilotens beregnede mål, ikke fysisk servofeedback.
 
 Testene av RC-journal, delvis feil, eksterne endringer og konkurrerende lokale
@@ -267,20 +301,21 @@ instanser bruker falske parameterverdier uten ROV-trafikk. Sperring/tilbakeføri
 er også kontrollert mot dagens ROV med Play stoppet, uten å sende tiltmål.
 Praktisk samtidig joystick-/headsettest og kontroll av mekanisk servobevegelse gjenstår.
 
-## Første skjerm og kontrollhjelp (etter v2)
+## Automatic startup and control help (after v2)
 
-Ved hver oppstart vises en profilvelger. Velg **Sist lagrede oppsett** eller en
-navngitt profil, og trykk **Start med valgt oppsett**. Kameratilten sender ikke
-hodebaserte mål og tar ikke RC-sperren før Start er valgt. En ugyldig profil
-viser feil og lar velgeren stå åpen. På PC finnes Start-knappene også direkte
-i Game-visningen, uten at F4-panelet må åpnes.
+Startup loads the existing local `rov-video-view.json`; bundled defaults are
+used only when that local file is absent. The pilot view starts without a
+welcome screen or Start button. Head-camera control waits for active XR, a
+ready tracked headset, VR focus and fresh BlueOS heartbeat, plus fresh attitude
+when pitch compensation needs it. The existing camera calibration, RC gate,
+command acknowledgement and recovery rules still apply. An explicit RC choice
+is preserved. Automatic startup never arms the vehicle or controls thrusters.
 
-Velkomstmenyen starter vannrett foran brukeren, slik at lagrede menyvinkler
-ikke gjør første valg vanskelig å nå. Den kan flyttes med samme kontroller
-som resten av menyen, også om vindusflytting er slått av i forrige oppsett.
-Flytting og vinkling før Start endrer bare velkomstmenyen. Etter Start brukes
-profilens vanlige menyplassering. Profilvalg endrer ikke den lagrede startfilen
-uten at du velger å lagre den. Eksisterende profiler og innstillinger beholdes.
+Look forward and press left **X** to recenter. Open settings with right-stick
+click or **F3** whenever needed, even while waiting for readiness. A panel
+deliberately opened by the pilot remains open when the connection becomes
+ready. Named profiles remain under **ALLE INNSTILLINGER → PROFILER**. Loading
+one does not replace the startup JSON until **LAGRE TIL NESTE OPPSTART** or Y/F5.
 
 **Kontroller og hjelp** viser tre deler:
 
@@ -290,9 +325,8 @@ uten at du velger å lagre den. Eksisterende profiler og innstillinger beholdes.
 - Flytt vinduer: gripeknapp, side/høyde, avstand, pitch/yaw og lagring. Den
   valgte gripeknappen og avstandsmodifikatoren vises fra innstillingene.
 
-Dette er en hjelpeside som åpnes fra menyen, og dekker ikke pilotbildet når
-menyen lukkes. Bruk **Hjem** for å gå tilbake. Mer avanserte valg er beholdt.
-Praktisk lesbarhet og betjening må fortsatt prøves i Quest.
+This help page is available through **ALLE INNSTILLINGER → KONTROLLER OG HJELP**.
+It disappears when settings close; **TILBAKE** returns to the catalog.
 
 ## Rette opp meny og pekere (etter v2)
 
@@ -307,9 +341,9 @@ Praktisk lesbarhet og betjening må fortsatt prøves i Quest.
   kontrollerens posisjon. Når menyen er lukket, brukes et punkt 2 m foran blikket.
 
 Dette endrer ikke hodenøytral, videosentrering eller servoens kontrolløkt.
-Normal menyplassering kan lagres i profilen som før; velkomstmenyens plassering
-er midlertidig. Snarveien med begge grip-knappene er reservert for å hente menyen;
-andre pilotbindinger venter mens kombinasjonen holdes inne.
+Normal menu placement can be saved in the profile. Placement changes made while
+automatic startup is still waiting are temporary. The two-grip recovery shortcut
+is reserved; other pilot bindings wait while that combination is held.
 
 Pekeren krever både posisjons- og rotasjonssporing. Ved bare rotasjonsprediksjon
 skjules pekeren i stedet for å bruke en gammel håndposisjon. Menyen viser en

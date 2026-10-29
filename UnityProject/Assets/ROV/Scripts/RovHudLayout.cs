@@ -42,6 +42,18 @@ namespace ROVVR
         public RovHudBoxLayout attitude = new RovHudBoxLayout(0.8f, -0.42f, 2f);
         public RovHudBoxLayout diagnostics = new RovHudBoxLayout(0f, -0.7f, 2.2f);
 
+        // Applied explicitly so existing pilots keep their calibrated layout
+        // until they select the FPV preset.
+        public static RovHudLayout CreateFpv() => new RovHudLayout
+        {
+            status = new RovHudBoxLayout(0f, 0.7f, 2f) { faceViewer = false },
+            battery = new RovHudBoxLayout(-0.92f, -0.47f, 2f) { faceViewer = false },
+            depth = new RovHudBoxLayout(0.92f, -0.47f, 2f) { faceViewer = false },
+            cameraTilt = new RovHudBoxLayout(-0.92f, 0.38f, 2f) { faceViewer = false },
+            attitude = new RovHudBoxLayout(0.92f, 0.38f, 2f) { faceViewer = false },
+            diagnostics = new RovHudBoxLayout(0f, -0.7f, 2f) { faceViewer = false }
+        };
+
         public void Validate()
         {
             if (status == null) status = new RovHudBoxLayout(0f, 0.65f, 2.2f);

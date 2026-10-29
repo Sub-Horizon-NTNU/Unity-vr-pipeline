@@ -21,8 +21,12 @@ namespace ROVVR
 
         private RectTransform root;
         private CanvasGroup group;
-        private RectTransform statusRoot;
-        private Text connection, armed, alert, diagnostics;
+        private RectTransform statusRoot, centerRoot;
+        private Text attitudeCue;
+        private readonly Text[] pitchLabels = new Text[3];
+        private readonly int[] formattedPitchMarks = {int.MinValue, int.MinValue, int.MinValue};
+        private RovFpvAttitudeGraphic attitudeGraphic;
+        private Text connection, armed, alert, diagnostics, pilotGain, lights;
         private Text controlState;
         private Image linkDot;
         private Metric battery, depth, tiltIndicator, attitude;
@@ -37,9 +41,9 @@ namespace ROVVR
         private readonly List<int> fontSizes = new List<int>();
         private readonly Dictionary<RovHudArt.Kind, Sprite> hudSprites = new Dictionary<RovHudArt.Kind, Sprite>();
         private readonly List<XRDisplaySubsystem> displays = new List<XRDisplaySubsystem>();
-        private static readonly Color Ink = new Color(0.94f, 0.97f, 1f, 1f);
-        private static readonly Color Muted = new Color(0.57f, 0.67f, 0.77f, 1f);
-        private static readonly Color Accent = new Color(0.31f, 0.84f, 0.95f, 1f);
+        private static readonly Color Ink = RovFpvAttitudeGraphic.Stroke;
+        private static readonly Color Muted = new Color(0.52f, 0.94f, 0.37f, 1f);
+        private static readonly Color Accent = RovFpvAttitudeGraphic.Stroke;
         private static readonly Color Amber = new Color(1f, 0.73f, 0.28f, 1f);
         private static readonly Color Red = new Color(1f, 0.38f, 0.32f, 1f);
         private static readonly string[] CompassPoints = {"N", "NØ", "Ø", "SØ", "S", "SV", "V", "NV"};
@@ -47,7 +51,7 @@ namespace ROVVR
         private sealed class Metric
         {
             public RectTransform root;
-            public Text value, hint, unit;
+            public Text value, hint, unit, caption;
         }
 
         private void LateUpdate()
@@ -100,19 +104,36 @@ namespace ROVVR
             group.interactable = false; group.blocksRaycasts = false;
 
             statusRoot = Node("Status box", group.transform, 0, 0, 1060, 66);
-            Card("Status capsule", statusRoot, 1060, 66);
+            // Outlined glyphs keep the camera image visible between instruments.
             linkDot = Symbol("Link light", statusRoot, -500, 0, RovHudArt.Kind.Dot);
             connection = Label("Connection", statusRoot, -315, 0, 325, 36, 20, TextAnchor.MiddleLeft, Ink);
             Rule(statusRoot, -132, 0, 1, 24);
             controlState = Label("Head control", statusRoot, 70, 0, 360, 36, 19, TextAnchor.MiddleCenter, Muted);
+            controlState.horizontalOverflow = HorizontalWrapMode.Wrap;
+            controlState.verticalOverflow = VerticalWrapMode.Truncate;
+            controlState.rectTransform.sizeDelta = new Vector2(360f, 68f);
             Rule(statusRoot, 284, 0, 1, 24);
             armed = Label("Arming state", statusRoot, 406, 0, 196, 36, 19, TextAnchor.MiddleRight, Muted);
             alert = Label("Pilot alert", statusRoot, 0, -58, 950, 40, 22, TextAnchor.MiddleCenter, Amber);
-            battery = Instrument("B A T T E R I", "V", RovHudArt.Kind.Battery);
-            depth = Instrument("D Y B D E  ·  E S T.", "m", RovHudArt.Kind.Depth);
-            tiltIndicator = Instrument("K A M E R A", "°", RovHudArt.Kind.Camera);
-            attitude = Instrument("R O V  ·  P I T C H", "°", RovHudArt.Kind.Attitude);
+            battery = Instrument("BAT", "V");
+            depth = Instrument("DEPTH EST", "m");
+            pilotGain = Label("Vehicle pilot gain", battery.root, 0, -88, 300, 30, 20, TextAnchor.MiddleLeft, Ink);
+            lights = Label("Commanded lights", depth.root, 0, -88, 340, 30, 20, TextAnchor.MiddleLeft, Ink);
+            tiltIndicator = Instrument("CAM TARGET", "°");
+            attitude = Instrument("ROV PITCH", "°");
             diagnostics = Label("Diagnostics", group.transform, 0, -460, 960, 50, 20, TextAnchor.MiddleCenter, Muted);
+
+            centerRoot = Node("FPV center reference", group.transform, 0, 0, 1920, 1080);
+            var centerCanvas = centerRoot.gameObject.AddComponent<Canvas>();
+            centerCanvas.renderMode = RenderMode.WorldSpace;
+            centerCanvas.overrideSorting = true; centerCanvas.sortingOrder = 102;
+            centerCanvas.worldCamera = canvas.worldCamera;
+            attitudeGraphic = CreateAttitudeGraphic(centerRoot, vectorMaterial);
+            attitudeCue = Label("Attitude availability", centerRoot, 0, 0, 600, 30, 19, TextAnchor.MiddleCenter, Muted);
+            for (int i = 0; i < pitchLabels.Length; i++)
+            {
+                pitchLabels[i] = Label("Pitch reference " + i, centerRoot, 0, 0, 64, 30, 14, TextAnchor.MiddleCenter, Ink);
+            }
 
             compass = new RovVrCompass(view, material, font);
             stream = GetComponent<StreamController>();
@@ -148,6 +169,47 @@ namespace ROVVR
         {
             if (!isActiveAndEnabled || root == null || view == null || view.eye == null) return;
             root.SetPositionAndRotation(view.PilotHudPosition, view.PilotHudRotation);
+            // The new center reference follows the video, independently of calibrated edge boxes.
+            if (centerRoot != null)
+                centerRoot.SetPositionAndRotation(view.transform.position, view.transform.rotation);
+            if (attitudeGraphic != null) UpdateAttitudeCue();
+        }
+
+        private void UpdateAttitudeCue()
+        {
+            bool valid = view.TryGetHudCameraRotation(out Quaternion camera);
+            attitudeGraphic.SetProjection(view.horizontalFov, view.curveDegrees, view.cylindricalSurface);
+            attitudeGraphic.SetMainZoom(view.pilot.mainZoom);
+            attitudeGraphic.SetCameraAttitude(camera, valid && view.hudShowAttitude);
+            float sourceScale = Mathf.Abs(attitudeGraphic.ProjectPoint(Vector2.right).x);
+            attitudeCue.rectTransform.localPosition = attitudeGraphic.ProjectPoint(new Vector2(0, -440));
+            attitudeCue.rectTransform.localScale = Vector3.one * sourceScale;
+            attitudeCue.gameObject.SetActive(view.hudShowAttitude);
+            SetText(attitudeCue, !attitudeGraphic.HorizonZoomAllowed ? "HORIZON AT 1× ONLY"
+                : !valid ? "HORIZON UNAVAILABLE / NO FRESH IMU + TILT"
+                : !attitudeGraphic.HorizonVisible ? "HORIZON OUT OF VIEW / CAM ATT EST" : "CAM ATT EST / TARGET + IMU");
+            attitudeCue.color = valid ? Muted : Amber;
+            for (int i = 0; i < pitchLabels.Length; i++)
+            {
+                int mark = attitudeGraphic.PitchMark(i);
+                float x = (mark == 0 ? RovFpvAttitudeGraphic.HorizonHalfWidth : RovFpvAttitudeGraphic.TickHalfWidth) + 24f;
+                bool projected = attitudeGraphic.TryMarkPoint(x, mark, out Vector2 point);
+                bool inside = projected && Mathf.Abs(point.x) < 920 && Mathf.Abs(point.y) < 420;
+                pitchLabels[i].gameObject.SetActive(attitudeGraphic.HorizonAvailable && inside);
+                if (formattedPitchMarks[i] != mark)
+                {
+                    SetText(pitchLabels[i], mark.ToString("+0;-0;0"));
+                    formattedPitchMarks[i] = mark;
+                }
+                pitchLabels[i].rectTransform.localPosition = attitudeGraphic.ProjectPoint(point);
+                float angle = attitudeGraphic.Roll;
+                if (attitudeGraphic.TryMarkPoint(x + 1f, mark, out var next))
+                    angle = Mathf.Atan2(next.y - point.y, next.x - point.x) * Mathf.Rad2Deg;
+                pitchLabels[i].rectTransform.localRotation = Quaternion.AngleAxis(angle, Vector3.forward);
+                pitchLabels[i].rectTransform.localScale = Vector3.one * sourceScale;
+                Color color = Ink; color.a *= 0.62f * attitudeGraphic.MarkOpacity(i);
+                pitchLabels[i].color = color;
+            }
         }
 
         private static void Place(RectTransform box, RovHudBoxLayout layout)
@@ -165,7 +227,7 @@ namespace ROVVR
             bool videoLive = stream != null && now - stream.LastFrameReceivedAt < 1f;
             SetText(connection, live ? "ROV   /   TILKOBLET" : "ROV   /   FRAKOBLET");
             linkDot.color = live ? Accent : Red;
-            SetText(controlState, tilt == null ? "HODESTYRING  ---" : tilt.Status.ToUpperInvariant());
+            SetText(controlState, ControlLabel(tilt));
             controlState.color = tilt != null && tilt.CommandAccepted ? Accent : Muted;
             SetText(armed, !live ? "ARMSTATUS  ---" : tilt.HudTelemetry.Armed ? "ARMERT" : "AVARMERT");
             SetText(alert, !live ? "TELEMETRI MANGLER" : !videoLive ? "VIDEO IKKE OPPDATERT" : !pose ? "IMU IKKE OPPDATERT" : "");
@@ -176,16 +238,26 @@ namespace ROVVR
             SetText(battery.value, Value(volts, "F1", ""));
             SetText(battery.hint, RovCameraPoseMath.Finite(percent) ? percent.ToString("F0") + " %  GJENSTÅR" : "GJENSTÅR   — %");
             battery.value.color = RovCameraPoseMath.Finite(percent) && percent <= 20f ? Amber : Ink;
-            battery.root.gameObject.SetActive(view.hudShowBattery);
+            // Pilot gain, battery and light commands stay visible whenever the
+            // pilot HUD is enabled. B still toggles the entire HUD.
+            battery.root.gameObject.SetActive(true);
             float meters = live ? tilt.HudTelemetry.DepthEstimate(now) : float.NaN;
             SetText(depth.value, Value(meters, "F1", ""));
             SetText(depth.hint, "AHRS2  /  ESTIMAT");
-            depth.root.gameObject.SetActive(view.hudShowDepth);
+            depth.root.gameObject.SetActive(true);
+            depth.caption.gameObject.SetActive(view.hudShowDepth);
+            depth.value.gameObject.SetActive(view.hudShowDepth);
+            depth.unit.gameObject.SetActive(view.hudShowDepth);
+            depth.hint.gameObject.SetActive(view.hudShowDepth);
+            float gain = live ? tilt.HudTelemetry.PilotGain(now) : float.NaN;
+            float light1 = live ? tilt.HudTelemetry.Light1Level(now) : float.NaN;
+            float light2 = live ? tilt.HudTelemetry.Light2Level(now) : float.NaN;
+            SetText(pilotGain, "PILOT GAIN  " + Percent(gain));
+            SetText(lights, "LIGHT CMD  L1 " + LightLevel(light1) + " / L2 " + LightLevel(light2));
 
             bool mount = tilt != null && tilt.MountTelemetryLive;
             SetText(tiltIndicator.value, mount ? tilt.ReportedPitch.ToString("+0.0;-0.0;0.0") : "—");
-            SetText(tiltIndicator.hint, tilt != null && tilt.AtTiltLimit ? "TILTGRENSE"
-                : tilt == null ? "—" : $"OMRÅDE   {tilt.MinimumPitch:F0}°  /  +{tilt.MaximumPitch:F0}°");
+            SetText(tiltIndicator.hint, tilt != null && tilt.AtTiltLimit ? "TILT LIMIT" : "REPORTED TARGET");
             tiltIndicator.value.color = tilt != null && tilt.AtTiltLimit ? Amber : Ink;
             tiltIndicator.root.gameObject.SetActive(view.hudShowAttitude);
             SetText(attitude.value, pose ? $"{tilt.VehicleRollPitchYaw.y:+0.0;-0.0;0.0}" : "—");
@@ -198,10 +270,38 @@ namespace ROVVR
         }
 
         public static string Compass(float yaw) => CompassPoints[Mathf.FloorToInt((Mathf.Repeat(yaw, 360f) + 22.5f) / 45f) % 8];
+        private static string ControlLabel(RovHeadTiltController tilt)
+        {
+            if (tilt == null) return "HEAD CONTROL —";
+            return CompactControlStatus(tilt.Status, tilt.RcGateStatus, tilt.CommandAccepted, tilt.HeadFollowingEnabled);
+        }
+
+        // Only known normal states are abbreviated. Refusals, RC gate errors,
+        // calibration and retry/recovery instructions retain their owning text.
+        public static string CompactControlStatus(string status, string rcGateStatus, bool accepted, bool following)
+        {
+            if (!string.IsNullOrEmpty(rcGateStatus)
+                && (rcGateStatus.Contains("feilet") || rcGateStatus.StartsWith("Kunne ikke"))) return rcGateStatus;
+            if (accepted && (status == "VR-tilt: fersk ACK (ikke fysisk feedback)" || status == "Hodefølging av; kameratilt låst"))
+                return following ? "CAM ACK / HEAD FOLLOW" : "CAM ACK / HOLD";
+            return string.IsNullOrEmpty(status) ? "HEAD CONTROL —" : status;
+        }
         private static string Value(float value, string format, string unit) => RovCameraPoseMath.Finite(value) ? value.ToString(format) + unit : "---";
+        private static string Percent(float value) => RovCameraPoseMath.Finite(value) ? (value * 100f).ToString("F0") + "%" : "—";
+        private static string LightLevel(float value) => RovCameraPoseMath.Finite(value) && value == 0f ? "OFF" : Percent(value);
         private static void SetText(Text label, string text) { if (label.text != text) label.text = text; }
 
-        private RectTransform Node(string name, Transform parent, float x, float y, float width, float height)
+        // Shared with the editor composition regression so it exercises the
+        // same node/components that the pilot actually renders.
+        public static RovFpvAttitudeGraphic CreateAttitudeGraphic(Transform parent, Material vectorMaterial)
+        {
+            var node = Node("Reticle and estimated camera attitude", parent, 0, 0, 8000, 8000);
+            var graphic = node.gameObject.AddComponent<RovFpvAttitudeGraphic>();
+            graphic.material = vectorMaterial; graphic.raycastTarget = false;
+            return graphic;
+        }
+
+        private static RectTransform Node(string name, Transform parent, float x, float y, float width, float height)
         {
             var rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
             rect.SetParent(parent, false);
@@ -216,18 +316,11 @@ namespace ROVVR
             label.font = font; label.fontSize = size; label.color = color; label.material = material;
             label.alignment = alignment; label.raycastTarget = false;
             label.horizontalOverflow = HorizontalWrapMode.Overflow; label.verticalOverflow = VerticalWrapMode.Overflow;
+            var outline = label.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0f, 0f, 0f, 0.95f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
             textElements.Add(label); fontSizes.Add(size);
             return label;
-        }
-
-        private void Card(string name, Transform parent, float width, float height)
-        {
-            var edge = Node(name + " edge", parent, 0, 0, width, height).gameObject.AddComponent<Image>();
-            edge.sprite = SpriteFor(RovHudArt.Kind.Card); edge.type = Image.Type.Sliced;
-            edge.material = vectorMaterial; edge.color = new Color(0.4f,0.6f,0.73f,0.40f); edge.raycastTarget = false;
-            var card = Node(name, parent, 0, 0, width - 2f, height - 2f).gameObject.AddComponent<Image>();
-            card.sprite = edge.sprite; card.type = Image.Type.Sliced;
-            card.color = new Color(0.025f,0.045f,0.075f,0.94f); card.material = vectorMaterial; card.raycastTarget = false;
         }
 
         private void Rule(Transform parent, float x, float y, float width, float height)
@@ -249,19 +342,17 @@ namespace ROVVR
             return symbol;
         }
 
-        private Metric Instrument(string title, string unit, RovHudArt.Kind kind)
+        private Metric Instrument(string title, string unit)
         {
-            var rect = Node(title, group.transform, 0, 0, 320, 182);
-            Card("Instrument card", rect, 320, 182);
+            var rect = Node(title, group.transform, 0, 0, 300, 112);
             var metric = new Metric { root = rect };
-            Symbol("Instrument icon", rect, -125, 56, kind);
-            Label("Caption", rect, 26, 56, 240, 30, 16, TextAnchor.MiddleLeft, Muted).text = title;
-            Rule(rect, 0, 33, 268, 1);
-            metric.value = Label("Value", rect, -27, -7, 222, 76, 56, TextAnchor.MiddleLeft, Ink);
+            metric.caption = Label("Caption", rect, 0, 45, 280, 28, 21, TextAnchor.MiddleLeft, Muted);
+            metric.caption.text = title;
+            metric.value = Label("Value", rect, -24, 0, 230, 58, 46, TextAnchor.MiddleLeft, Ink);
             metric.value.fontStyle = FontStyle.Bold;
-            metric.unit = Label("Unit", rect, 119, -17, 40, 40, 24, TextAnchor.MiddleRight, Accent);
+            metric.unit = Label("Unit", rect, 121, -5, 40, 32, 26, TextAnchor.MiddleRight, Ink);
             metric.unit.text = unit;
-            metric.hint = Label("Detail", rect, 0, -62, 268, 28, 16, TextAnchor.MiddleLeft, Muted);
+            metric.hint = Label("Detail", rect, 0, -42, 280, 25, 19, TextAnchor.MiddleLeft, Muted);
             return metric;
         }
 

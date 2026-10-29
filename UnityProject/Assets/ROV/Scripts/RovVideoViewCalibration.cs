@@ -63,6 +63,19 @@ namespace ROVVR
         public Quaternion CenteredHeading => heading;
         public string ConfigurationPath => RovVideoViewProfile.FilePath;
         public bool PoseLive => tilt != null && tilt.AttitudeLive && tilt.MountTelemetryLive;
+        // Physical camera estimate in its source-image frame, before user
+        // presentation trims. Hold/manual modes freeze placement, not live ROV
+        // attitude. The mount reports targets, not measured physical feedback.
+        public bool TryGetHudCameraRotation(out Quaternion camera)
+        {
+            camera = Quaternion.identity;
+            if (!PoseLive) return false;
+            camera = anchorToRovImu && imuCentered && poseInitialized && !ScreenLocked
+                ? Quaternion.Inverse(rovAlignment) * lastPose
+                : RovCameraPoseMath.CameraRotation(RovCameraPoseMath.VehicleRotationWithoutYaw(tilt.VehicleRollPitchYaw),
+                    DisplayMountPitch, tilt.MinimumPitch, tilt.MaximumPitch);
+            return true;
+        }
         public float DisplayMountPitch => tilt == null ? 0f : Mathf.Clamp(tilt.ReportedPitch, tilt.MinimumPitch, tilt.MaximumPitch);
         public string PoseStatus => !headFollowingEnabled ? "Hodefølging av; skjermen er låst (A for å følge)"
             : !anchorToRovImu ? "Manuell videoskjerm"
@@ -465,6 +478,8 @@ namespace ROVVR
 
         private void OnGUI()
         {
+            // The world-space settings panel is the single interface during an HMD session.
+            if (XRSettings.isDeviceActive) return;
             DrawStartupOverlay();
             if (showSettings)
             {
@@ -505,7 +520,7 @@ namespace ROVVR
                 GUILayout.Label("HUD følger");
                 hudAnchorMode = (RovHudAnchorMode)GUILayout.SelectionGrid((int)hudAnchorMode, new[] {"Videoflaten", "Hodet", "Fast X-retning"}, 1);
                 hudShowAttitude = GUILayout.Toggle(hudShowAttitude, "Vis pitch/roll og kameratilt");
-                hudShowBattery = GUILayout.Toggle(hudShowBattery, "Vis batteri");
+                GUILayout.Label("Batteri, armering, pilotgain og lys vises alltid i HUD-et.");
                 hudShowDepth = GUILayout.Toggle(hudShowDepth, "Vis estimert dybde (AHRS2)");
                 hudShowDiagnostics = GUILayout.Toggle(hudShowDiagnostics, "Vis render-/video-FPS og headset-Hz");
                 hudShowCompass = GUILayout.Toggle(hudShowCompass, "Kompassring rundt deg nederst");

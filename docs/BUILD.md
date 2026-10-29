@@ -1,13 +1,47 @@
 # Bygging og utgivelse
 
-## Bygg Windows v2
+## Build and package Windows v3
+
+Use Unity **6000.1.7f1** with Windows Build Support and stop Play. In the Editor,
+choose **ROV → Release → Build Windows v3**. For batch builds, invoke
+`ROVVR.Editor.RovReleaseBuilder.BuildV3` with `-batchmode -quit -projectPath`
+pointing to `UnityProject`. The build uses Mono, Direct3D 11, version 3.0.0 and
+only the saved main scene. Check `Builds/v3/unity-build-report.json`: success
+requires both a successful build result and zero errors.
+
+The Unity process must inherit the complete GStreamer MSVC x64 runtime before
+starting, **including for batch builds**. For example, in the launching
+PowerShell process:
+
+```powershell
+$v3GStreamerRoot = 'C:\path\to\gstreamer\1.0\msvc_x86_64'
+$env:PATH = "$v3GStreamerRoot\bin;$env:PATH"
+$env:GST_PLUGIN_SYSTEM_PATH_1_0 = "$v3GStreamerRoot\lib\gstreamer-1.0"
+$env:GST_PLUGIN_PATH_1_0 = $env:GST_PLUGIN_SYSTEM_PATH_1_0
+$env:GST_PLUGIN_SCANNER_1_0 = "$v3GStreamerRoot\libexec\gstreamer-1.0\gst-plugin-scanner.exe"
+```
+
+These are process-local settings. A build started without them produced native
+plugin-load errors even though Unity's summary said `Succeeded`; the stricter
+zero-error gate correctly rejected it. Use the JSON report, not that summary
+alone. After committing the reviewed source, package with:
+
+```powershell
+.\scripts\Package-V3.ps1 -GStreamerRoot $v3GStreamerRoot
+```
+
+`Releases/v3` receives Windows/project ZIPs and `SHA256SUMS.txt`. Packaging
+requires a clean working tree, successful zero-error v3 build, complete runtime
+plugins and actual LFS binaries. Older v1/v2 packages remain unchanged.
+
+## Legacy Windows v2 build target
 
 1. Åpne hovedscenen i Unity 6000.1.7f1 og stopp Play.
 2. Oppdater eventuelt `Assets/StreamingAssets/rov-video-view.defaults.json`.
 3. Velg **ROV → Release → Build Windows v2**.
 
-Byggeren kjører prosjektets 222 kodekontroller og bygger den lagrede
-hovedscenen til `Builds/v2/Unity-vr-pipeline-v2.exe`. Den bruker Windows x64,
+Rebuilding the v2 target from current source runs 271 shared checks and builds
+the saved main scene to `Builds/v2/Unity-vr-pipeline-v2.exe`. Den bruker Windows x64,
 Mono, Direct3D 11, ordinær build uten development-flagg og versjon 2.0.0.
 Alle scener beholdes i kildeprosjektet; kun hovedscenen inngår i spilleren.
 Resultatet skrives til `Builds/v2/unity-build-report.json` og midlertidig til
@@ -33,7 +67,7 @@ Kopier DLL/lib/exp fra `Builds/native-release/Release` til
 `UnityProject/Assets/Plugins/GstUnityPlugin/Windows` med Play stoppet.
 Pluginimporten må ha Windows x86_64 aktivert; buildverktøyet sjekker dette.
 
-## Pakk build og komplett kildeprosjekt
+## Legacy v2 packaging
 
 Fra repoets toppmappe etter en vellykket Unity-build:
 
@@ -53,22 +87,29 @@ cacher og build-output tas ikke med. Commit endringene før den endelige
 pakkingen slik at kildepakken matcher Git-taggen. `git archive` alene kan
 gi LFS-pekere i stedet for de store binærfilene.
 
-## Publiser
+## Publish v3
+
+From the repository root, review and stage only the intended release changes.
+Build v3 successfully first, then commit before packaging: `Package-V3.ps1`
+requires a clean working tree and records that source commit in the package.
+Set `$v3GStreamerRoot` to the complete runtime as shown above. Confirm `origin`
+points to `https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline.git`.
 
 ```powershell
 git lfs install
-git add .
-git commit -m 'Prepare Unity ROV VR v2 release'
+git diff --cached --stat
+git commit -m 'Prepare Unity ROV VR v3 release'
+.\scripts\Package-V3.ps1 -GStreamerRoot $v3GStreamerRoot
 git push origin HEAD:main
-git tag v2
-git push origin v2
-gh release create v2 --repo Sub-Horizon-NTNU/Unity-vr-pipeline `
-  --title v2 --notes-file docs/RELEASE_v2.md `
-  Releases/v2/Unity-vr-pipeline-v2-Windows-x64.zip `
-  Releases/v2/Unity-vr-pipeline-v2-project.zip `
-  Releases/v2/SHA256SUMS.txt
+git tag v3
+git push origin v3
+gh release create v3 --repo Sub-Horizon-NTNU/Unity-vr-pipeline `
+  --title v3 --notes-file docs/RELEASE_v3.md `
+  Releases/v3/Unity-vr-pipeline-v3-Windows-x64.zip `
+  Releases/v3/Unity-vr-pipeline-v3-project.zip `
+  Releases/v3/SHA256SUMS.txt
 ```
 
-`origin` skal peke på https://github.com/Sub-Horizon-NTNU/Unity-vr-pipeline.git.
-Ikke force-push over andres arbeid eller gjenbruk v1-taggen for en ny build.
+Check that v3 is a new tag before running the publication commands. Do not
+overwrite an existing release tag or force-push shared history; preserve v1/v2.
 

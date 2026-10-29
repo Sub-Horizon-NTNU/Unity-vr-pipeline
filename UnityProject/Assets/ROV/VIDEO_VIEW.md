@@ -3,7 +3,10 @@
 Ny funksjonalitet etter v1: se [Zoom, VR-meny, profiler og bindinger](../../../docs/PILOT_TOOLS.md).
 Høyre spakklikk/F3 åpner VR-menyen; høyre spak opp/ned zoomer, og høyre
 avtrekker velger et zoompunkt. F4/Editor-panelet har nå også navngitte profiler.
-Resten av denne siden beskriver grunnoppsettet fra v1.
+Current source starts automatically with the saved setup when headset, VR focus
+and ROV data are ready. See the linked pilot guide for quick settings and the
+new FPV HUD; numerical baseline examples below describe the earlier v1 setup,
+not a replacement for the active profile or bundled defaults.
 
 Den fungerende scenen er `Assets/GstUnityPlugin/Scenes/GstUnityPluginDemo01.unity`.
 Automatisk forstørrelse er fjernet etter headsettesten. Utgangspunktet er nå
@@ -27,9 +30,10 @@ kameravinkelen legges til. De virker
 både før og under Play. Endringer vises umiddelbart; velg **Lagre JSON** for å
 beholde dem når Play stoppes. Den samme komponenten kan justeres i Inspector.
 
-I Windows-build og Game-visningen viser **F4** et panel med de samme valgene.
-Panelet og statusmeldinger er på PC-skjermen, ikke som VR-panel. I Quest
-brukes kontrolleren beskrevet nedenfor. «ROV pitch/roll» kan slås av/på i panelet.
+With XR inactive, **F4** shows the legacy desktop panel in Play or a Windows
+build. Active XR hides that duplicate overlay; use right-stick click/F3 for
+the VR settings panel. The Editor's **ROV → View → Manual calibration** window
+remains available. References to F4 below describe the non-XR desktop panel.
 
 ## Konfigurasjonsfil
 
@@ -57,7 +61,8 @@ automatisk over. Se `Assets/ROV/video-view.example.json` for et eksempel.
 | compensateRovPitch | Motvirk ROV-ens tipping med tiltservoen | true / false |
 | pitchCompensationStrength | Styrke på pitch-korreksjonen, 1 = full beregnet | 0–1,5 |
 | hudEnabled | Hele VR-HUD-en, inkludert kompassringen | true / false |
-| hudShowAttitude / hudShowBattery / hudShowDepth | Individuelle instrumentgrupper | true / false |
+| hudShowAttitude / hudShowDepth | Estimated attitude instruments / optional estimated depth | true / false |
+| hudShowBattery | Legacy profile field; battery remains visible whenever the HUD is enabled | Retained for compatibility |
 | hudShowDiagnostics | Render-FPS, mottatt video-FPS og headset-Hz | true / false |
 | hudShowCompass | Kompassring rundt brukeren nederst | true / false |
 | compassRadius | Kompassringens radius | 1–3 meter |
@@ -110,8 +115,10 @@ rapporterte mål erstatter ikke en fysisk vinkelmåling.
 
 Grensene -35/+30 grader, utjevning og hastighetsgrense beholdes. Når ønsket
 vinkel ikke kan oppnås, brukes nærmeste tilgjengelige tilt. Fersk IMU er påkrevd
-for kontinuerlig kompensasjon. Utdatert IMU stopper kommandoene og utløser den
-eksisterende tilbakeføringen til RC-styring; gamle IMU-vinkler brukes ikke videre.
+for kontinuerlig kompensasjon. Stale IMU data stops new tilt targets; old angles
+are not used to continue steering. Current source preserves camera ownership
+through interruptions; explicit RC selection and normal shutdown use the
+documented RC restoration path in the pilot guide.
 
 | Handling | Venstre Quest-kontroller | Tastatur |
 | --- | --- | --- |
@@ -142,7 +149,12 @@ Avtrekker har prioritet over grip når begge holdes mens spaken beveges sideveis
 
 ## Flytende pilot-HUD
 
-HUD-en består av flate instrumentbokser med egen plassering og dybde.
+The current HUD uses outlined green FPV instruments, an open center reticle
+and a compact estimated horizon with at most two pitch references at 1×.
+Battery, arm state,
+vehicle pilot gain and commanded lights stay visible whenever the HUD is on.
+The existing compass circle remains a separate horizontal ring. Edge groups
+retain their individual placement and depth.
 «HUD følger» velger forankringen i ROV bilde / F4 / Inspector. Standardvalget
 «Videoflaten» følger skjermens faktiske posisjon og rotasjon, inkludert
 kameratilt og ROV-pitch/roll. Boksenes posisjoner og egen dybde beholdes;
@@ -157,7 +169,7 @@ eller F4-panelet:
 
 - Høyre/venstre og høyde: -2 til +2 meter, relativt til øyeposisjonen.
 - Avstand fremover: 0,6–4 meter. Nærmere gjør boksen visuelt større.
-- Boksstørrelse: 0,5–2 ganger, inkludert bakgrunn og tekst.
+- Group scale: 0.5–2 times, including text.
 - Vinkle mot sentrert øyeposisjon: orienterer boksen for lesing ved X-referansen.
 - Ekstra pitch/yaw/roll: -60 til +60 grader.
 
@@ -165,20 +177,28 @@ Disse lagres som position (x/y/z), scale, faceViewer og angleOffset (x/y/z)
 i hudLayout.<boksnavn>. «Tilbakestill bare HUD-plassering» endrer bare boksene.
 Lagre med Y, F5 eller Lagre JSON. HUD-tekststørrelse påvirker bare teksten.
 
-Utformingen bruker en fast leseretning og tydelig hierarki: en smal statuslinje
-øverst viser forbindelse og armstatus, mens varsler bare vises når noe krever
-oppmerksomhet. Kameratilt er samlet til venstre, dybdeestimat til høyre,
-batteri nederst til venstre og ROV-pitch/roll nederst til høyre. Store tall,
-synlige enheter, dempede etiketter og små mørke underlag gir kontrast mot
-videoen. Gult/rødt brukes sammen med tekst for grenser og manglende data.
-Midten av videobildet er fri. Instrumentgrupper kan skjules enkeltvis.
-HUD-tekststørrelse og synlighet kan justeres og lagres.
+A compact status line shows connection, camera-control status and arm state;
+warnings appear when attention is needed. Refusal, retry/recovery and RC-gate
+errors retain the controller's actual message. Battery and pilot gain share
+one edge group; commanded lights remain available even when estimated depth
+is hidden. Yellow/red warnings also have text. B hides the whole HUD, including
+the compass. The old `hudShowBattery` field no longer hides critical telemetry.
 
-Dette er en tilpasning til ROV-pilotering av prinsipper om å begrense HUD-støy,
-gruppere informasjon og unngå at symbolene stjeler oppmerksomhet fra motivet.
-Kilder er NASAs Head-Up Displays and Attention Capture, FAAs veiledning om
-flight deck displays og Cockpits instrumentutvalg. Den konkrete plasseringen
-og lesbarheten må vurderes av pilotene i Quest under bruk.
+The green horizon estimates camera attitude from IMU rotation and the reported
+mount target. A pinhole model uses configured display FOV, not measured optical
+intrinsics, and maps the estimate onto the curved video. At the tested geometry
+the horizon is about 30° wide, with at most two short references about 12° wide.
+Their opacity is multiplied by 0.62; critical text and compass are unchanged.
+The existing filtered camera estimate is read before user presentation trims;
+held/manual screen placement still uses fresh live camera attitude. No extra
+head or actuator filter is added. See [display contracts](../../../docs/ARCHITECTURE.md#pilot-display-contracts).
+
+The horizon and labels are shown only at main-video zoom 1×; other values show
+`HORIZON AT 1× ONLY` while retaining reticle, pilot information and compass.
+Returning to 1× restores the cue when data is fresh. Fresh heartbeat, attitude
+and mount data are required: otherwise `HORIZON UNAVAILABLE` replaces the cue.
+An actual horizon outside the image is reported as out of view, not forced
+onto the center. The pilot accepted the compact 1× appearance in Quest.
 
 Kantvignett, komfort-siktemerke og komfortmeny er fjernet. Eldre JSON-felt for
 disse effektene ignoreres og skrives ikke på nytt. Utjevning er nå synlig i
@@ -188,9 +208,10 @@ fartsgrensen gjelder fortsatt. Mer utjevning gir mer etterslep. Første gyldige
 videopose settes direkte, videre filtrering skjer én gang per renderframe.
 Headsettets sporing filtreres ikke av disse valgene.
 
-HUD-en bruker én world-space Canvas med egen rotasjon og flate bokser.
-Geometrien er bufret og følger transformene uten å bygges på nytt av hoderotasjon.
-Tall oppdateres når den formaterte verdien endres, opptil 5 ganger/sekund.
+The HUD uses world-space canvases, with a separately sorted projected central
+instrument. The custom graphic explicitly requires a `CanvasRenderer` and uses
+a white vector texture. Static geometry is cached; attitude geometry updates
+when its pose or projection changes. Formatted values update at up to 5 Hz.
 Kompassetikettene får fast lokal orientering, i stedet for å roteres mot
 headsettet hver renderframe. Ingen fullskjermseffekt, tidsbuffer eller blur
 er aktivert.
@@ -200,7 +221,15 @@ nederst, som standard 0,9 meter under øynene med radius 1,7 meter. ROV-yaw
 roterer gradmarkeringene, mens hoderotasjon ikke flytter dem. Kompasset
 dreier ikke videoflaten. Høyde, radius og synlighet kan justeres.
 
-Telemetri gjenbruker kontrollerens eksisterende REST-forespørsel. Batteri 0 fra
+Battery, depth, attitude and arm telemetry reuse the controller's REST request.
+`PilotGain`, `Lights1` and `Lights2` use a filtered receive-only MAVLink WebSocket
+because REST caches only the latest named value. Each normalized 0–1 field
+expires independently after three seconds, using local receipt age. The HUD
+shows gain as percent and `LIGHT CMD` as OFF or percent; these are output
+commands, not a measurement of physical lamp brightness. Missing or stale
+values remain unknown rather than being replaced with zero.
+
+Batteri 0 fra
 BATTERY_STATUS prioriteres, med SYS_STATUS som reserve. Ukjent prosent blir
 -- %, ikke en gjetning fra spenningen. Den tilkoblede ROV-en sender rundt
 15,4–15,5 V, men battery_remaining=-1. Dybde er tydelig merket EST. og AHRS2:
@@ -231,11 +260,13 @@ MAVLink-gimbalflaggenes standardverdier brukes ikke til å anta at denne enkle
 PWM-servoen er en stabilisert gimbal. ArduPilot rapporterer mountens mål, uten
 encoderfeedback. Denne verdien er derfor et estimat på kameravinkelen.
 
-REST-telemetri leses omtrent 10 ganger/sekund. Separate tellere krever to ulike
-IMU- og mountoppdateringer før data brukes; uendrede data utløper etter 0,75
-sekund. Ved manglende data holdes siste visningsretning, uten å bytte tilbake
-til hoderotasjon. Rotasjonen bruker den opprinnelige faste tidskonstanten på 0,06 sekunder. Dette
-kompenserer ikke for tidsforskjellen mellom videoframes, IMU og servobevegelse.
+In the ArduSub 4.5.7 (`b09fafe2`) bench sample, ATTITUDE/mount messages arrived
+at about 16.6 Hz. The application's existing GET plus 0.1 s wait polls the cache
+at at most about 10 Hz. Independent advancing counters require two updates;
+unchanged attitude/mount data expires after 0.75 s. Missing data holds the last
+presentation orientation. Rotation uses the configured telemetry smoothing,
+not an added horizon filter. Video, IMU and physical servo delay are not
+synchronized; reported mount targets do not establish actual camera motion.
 Headsetkameraet beholder vanlig sporing. Skjermens posisjon følger fortsatt
 hodets translasjon for å unngå å simulere parallakse fra et kamera som står i ro.
 
@@ -272,7 +303,8 @@ Oppsettet tar en kopi av scenen inkludert daværende ulagrede sceneendringer i
 `Assets/ROV/Backups/BeforeVideoViewCalibration.unity` før første installasjon.
 Kopien inneholder tidligere plassering og størrelse. En egen kopi før IMU-
 endringen finnes i `Assets/ROV/Backups/BeforeImuView.unity`. Arbeidsscenen er lagret
-med det nye oppsettet. Ingen ny Windows-eksekverbar er bygget.
+med det nye oppsettet. These backup notes predate v3; current Windows build
+verification is recorded in [the v3 release notes](../../../docs/RELEASE_v3.md).
 
 Kilder:
 
@@ -280,7 +312,7 @@ Kilder:
 - [Opprinnelig rapport med samme USB-ID og serienummer](https://discuss.bluerobotics.com/t/low-light-hd-usb-camera-random-disconnect-pi-3b/9370)
 - [Meta om avstand og visningskomfort](https://developers.meta.com/vr/design/display/)
 - [MAVLink ATTITUDE: akser og radianer](https://mavlink.io/en/messages/common.html#ATTITUDE)
-- [ArduPilot PWM-mount: rapporterer mål uten encoderfeedback](https://github.com/ArduPilot/ardupilot/blob/Copter-4.5.7/libraries/AP_Mount/AP_Mount_Servo.cpp#L113)
+- [ArduSub 4.5.7 PWM mount: latest angle targets without feedback](https://github.com/ArduPilot/ardupilot/blob/b09fafe2/libraries/AP_Mount/AP_Mount_Servo.cpp#L113-L123)
 - [Meta: redusere optisk bevegelse og bruke vignett](https://developers.meta.com/vr/resources/locomotion-design-reduce-optic-flow/)
 - [Unity: XR ignorerer vSyncCount og targetFrameRate](https://docs.unity3d.com/6000.1/Documentation/ScriptReference/Application-targetFrameRate.html)
 - [MAVLink batterifelt og ukjentverdier](https://mavlink.io/en/messages/common.html#BATTERY_STATUS)
@@ -319,17 +351,11 @@ lagt til en skjult VR-offset. Absolutt feil må måles mot en kjent retning.
 - https://ardupilot.org/sub/docs/common-compass-calibration-in-mission-planner.html
 - https://mavlink.io/en/messages/common.html#GPS_RAW_INT
 
-## HUD-utforming og live innstillinger (22. oktober 2026)
+## Earlier live-settings work (22 October 2026)
 
-HUD-kortene bruker nå en mørk marineblå bakgrunn med avrundede hjørner,
-tynn kant, lyse tall, separate cyan-fargede enheter og små vektorikoner.
-Statuskapselen viser forbindelse, hodestyring og armstatus; varsler vises
-under kapselen. Boksplassering, skala, synlighet og kompassringen beholdes.
-Ingen blur eller fullskjermseffekt er lagt til. Liberation Sans er inkludert
-som lokal ressurs med OFL-lisens. Designreferanser:
-
-- Garmin GMI 20: https://www.garmin.com/es-ES/p/126694/
-- Blue Robotics Cockpit: https://bluerobotics.com/introducing-cockpit/
+The earlier rounded dark-card appearance was replaced by the green FPV HUD.
+The control/recovery observations below are historical context from that work.
+Liberation Sans remains a local resource under the OFL license.
 
 På brukerens ønske er styrings- og visningsendringene fra HUD-arbeidet
 tilbakeført til koden før denne redesignen. Den nye HUD-grafikken, flytende

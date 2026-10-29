@@ -28,7 +28,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if (!$ProgramPath) {
-    $candidates = @('Unity-vr-pipeline-v2.exe', 'Unity-vr-pipeline-v1.exe',
+    $candidates = @('Unity-vr-pipeline-v3.exe', '..\Builds\v3\Unity-vr-pipeline-v3.exe',
+        'Unity-vr-pipeline-v2.exe', 'Unity-vr-pipeline-v1.exe',
         '..\Builds\v2\Unity-vr-pipeline-v2.exe', '..\Builds\v1\Unity-vr-pipeline-v1.exe')
     foreach ($candidate in $candidates) {
         $candidatePath = Join-Path $PSScriptRoot $candidate

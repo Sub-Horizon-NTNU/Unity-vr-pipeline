@@ -28,6 +28,7 @@ namespace ROVVR.Editor
             string action = File.ReadAllText(Request).Trim();
             File.Delete(Request);
             if (action == "build-pilot-preview") { EditorApplication.delayCall += BuildPilotPreview; return; }
+            if (action == "build-v3") { EditorApplication.delayCall += BuildV3; return; }
             if (action == "build-v2") { EditorApplication.delayCall += BuildV2; return; }
             if (action != "build-v1") { Write(false, "Unknown release request.", null, 0, 0); return; }
             EditorApplication.delayCall += BuildV1;
@@ -76,6 +77,9 @@ namespace ROVVR.Editor
         [MenuItem("ROV/Release/Build Windows v2")]
         public static void BuildV2() => BuildRelease("v2");
 
+        [MenuItem("ROV/Release/Build Windows v3")]
+        public static void BuildV3() => BuildRelease("v3");
+
         private static void BuildRelease(string version)
         {
             try
@@ -89,6 +93,12 @@ namespace ROVVR.Editor
                 int checks = RovHeadTiltChecks.Run() + RovCommandRecoveryChecks.Run()
                     + RovVideoViewChecks.Run() + RovCameraPoseChecks.Run() + RovManualViewChecks.Run()
                     + RovHudChecks.Run() + RovPilotControlsChecks.Run() + RovLiveSettingsChecks.Run() + RovPilotFeatureChecks.Run();
+                if (version == "v3")
+                {
+                    RovVideoViewProfile.Parse(File.ReadAllText(Path.Combine(Application.streamingAssetsPath, "rov-video-view.defaults.json")));
+                    checks += RovPilotMenuFlowChecks.Run() + RovPilotTelemetryChecks.Run()
+                        + RovFpvHudSetup.RunFpvChecks();
+                }
                 if (version == "v1" && !EditorSceneManager.SaveOpenScenes()) throw new IOException("Could not save open scenes.");
                 string root = Directory.GetParent(Application.dataPath).Parent.FullName;
                 string output = Path.Combine(root, "Builds", version, "Unity-vr-pipeline-" + version + ".exe");
@@ -97,7 +107,7 @@ namespace ROVVR.Editor
                 // Remove only its old build output before a repeat build.
                 string bindings = Path.Combine(Path.GetDirectoryName(output), "RuntimeActionBindings.json");
                 if (File.Exists(bindings)) File.Delete(bindings);
-                PlayerSettings.bundleVersion = version == "v2" ? "2.0.0" : "1.0.0";
+                PlayerSettings.bundleVersion = version == "v3" ? "3.0.0" : version == "v2" ? "2.0.0" : "1.0.0";
                 PlayerSettings.SetScriptingBackend(NamedBuildTarget.Standalone, ScriptingImplementation.Mono2x);
                 PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
                 PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] {GraphicsDeviceType.Direct3D11});
