@@ -111,6 +111,7 @@ namespace ROVVR
             var overlay = GetComponent<RovVrOverlay>();
             if (overlay == null) overlay = gameObject.AddComponent<RovVrOverlay>();
             overlay.view = this;
+            BeginPilotStartup();
         }
 
         private void OnEnable() { Application.onBeforeRender += UpdateViewPose; Application.onBeforeRender += UpdateDetailPose; }
@@ -417,7 +418,7 @@ namespace ROVVR
             var left = InputDevices.GetDeviceAtXRNode(XRNode.LeftHand);
             if (IsHeadReady())
             {
-                if (!pilotMenuOpen && !WindowDragActive && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
+                if (!startupPending && !pilotMenuOpen && !WindowDragActive && pilot.stickCalibrationEnabled && Time.realtimeSinceStartup >= nextAdjustment
                     && left.TryGetFeatureValue(CommonUsages.primary2DAxis, out Vector2 stick))
                 {
                     left.TryGetFeatureValue(CommonUsages.gripButton, out bool grip);
@@ -464,6 +465,7 @@ namespace ROVVR
 
         private void OnGUI()
         {
+            DrawStartupOverlay();
             if (showSettings)
             {
                 GUILayout.BeginArea(new Rect(12, 200, 440, Mathf.Max(220f, Mathf.Min(620f, Screen.height - 212f))), GUI.skin.box);

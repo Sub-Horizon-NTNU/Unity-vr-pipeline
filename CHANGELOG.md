@@ -1,6 +1,11 @@
 # Endringslogg
 
-## Etter v2 — servostyring
+## Etter v2 — brukervennlighet og servostyring
+
+- Profilvelger ved oppstart, med uttrykkelig Start før kameratilten begynner å følge hodet.
+- Hjem-side med funksjonskort og egen inngang til avanserte valg.
+- Kontrollhjelp for pilotering, meny/peker og vindusflytting, tilpasset aktive knappevalg.
+- VR-tastatur, lesbare navneforslag og navnebytte for profiler.
 
 - VR-prioritet via kontrollert sperring av RC-kamerainnganger, med eksplisitt VR/RC-valg, gjenopprettingsjournal og verifisert tilbakeføring.
 - Hodenøytral bevares ved fokus-/tracking-/IMU-avbrudd og RC/VR-bytte.

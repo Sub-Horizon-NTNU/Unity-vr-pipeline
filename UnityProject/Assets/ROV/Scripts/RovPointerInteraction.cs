@@ -93,7 +93,7 @@ namespace ROVVR
         {
             bool edge = held && !grabWasHeld && pointerFocusLastFrame;
             grabWasHeld = held; pointerFocusLastFrame = ready;
-            if (!ready || !pilot.windowDraggingEnabled || !held) { draggedWindow = DragWindow.None; return; }
+            if (!ready || startupPending || !pilot.windowDraggingEnabled || !held) { draggedWindow = DragWindow.None; return; }
             if (!WindowDragActive && edge)
             {
                 RectTransform target = null;

@@ -50,7 +50,9 @@ hvis dere ønsker å låse kameraet mens innstillinger justeres.
 Pek med høyre kontroller og trykk høyre avtrekker. På verdifelt kan du holde
 avtrekkeren og dra venstre/høyre over feltet. Feltet beholdes under draget,
 så en liten bevegelse opp/ned ikke begynner å justere raden ved siden av.
-Pilene øverst bytter side:
+Menyen åpner på **Hjem**, med kort for Profiler, Kontroller og hjelp, Zoom,
+Instrumenter, Videoopptak og Tilpass oppsettet. **Hjem** og **? Hjelp** ligger
+alltid nederst. Detaljvalgene under finnes via kortene og Tilpass oppsettet:
 
 1. **Zoom:** hovedzoom, detaljvindu, detaljzoom, målpunkt og kontrollervisning.
 2. **Detail placement:** plassering, størrelse og vinkling av detaljvinduet.
@@ -65,7 +67,7 @@ Pilene øverst bytter side:
 11. **Menu placement:** menyens pitch, yaw, høyde, sideplassering og avstand.
 12. **Recording:** start/stopp MP4-opptak, opptakskilde, oppløsning og vertikal vending.
 
-Menyen kan alltid lukkes med CLOSE, også etter ombinding av menyknappen.
+Etter profilvalget ved oppstart kan menyen lukkes med LUKK, også etter ombinding av menyknappen.
 Venstre spaks bildejustering og øvrige pilotsnarveier er sperret mens menyen
 er åpen. Pekerne vises i menyen selv om de er skjult under vanlig pilotering.
 
@@ -127,8 +129,12 @@ I **ROV → View → Manual calibration**, eller **F4** i Play/build, utvid
 profile**. Listen under har en last-knapp for hver profil. «Refresh profile
 list» finner filer som er kopiert inn fra en annen PC.
 
-I VR kan «Save as new profile» lage et tidsstemplet profilnavn uten tastatur.
-Velg deretter en profil for å laste eller overskrive den. Overskriving beholder
+I VR: **Profiler → Ny profil** åpner et lite skjermtastatur med Æ/Ø/Å,
+sletting og navneforslag som Pilotprofil, Inspeksjon og Oversikt. Nye navn
+får et ledig, lesbart tillegg ved behov (for eksempel Pilotprofil 2).
+Velg en profil og **Gi nytt navn** for å endre navnet uten å endre innholdet.
+Eldre VR-profiler med tidsstempel vises med en lesbar dato; filene endres først
+når du selv gir dem et nytt navn. **Lagre endringer i aktiv profil** beholder
 forrige versjon som `.bak`. Profiler omfatter bildegeometri, zoom, HUD,
 kompensasjon, utjevning, hodefølging og knappebindinger. Lasting av en profil
 kan derfor også endre den uttrykkelige hodefølging på/av-innstillingen.
@@ -260,3 +266,28 @@ Testene av RC-journal, delvis feil, eksterne endringer og konkurrerende lokale
 instanser bruker falske parameterverdier uten ROV-trafikk. Sperring/tilbakeføring
 er også kontrollert mot dagens ROV med Play stoppet, uten å sende tiltmål.
 Praktisk samtidig joystick-/headsettest og kontroll av mekanisk servobevegelse gjenstår.
+
+## Første skjerm og kontrollhjelp (etter v2)
+
+Ved hver oppstart vises en profilvelger. Velg **Sist lagrede oppsett** eller en
+navngitt profil, og trykk **Start med valgt oppsett**. Kameratilten sender ikke
+hodebaserte mål og tar ikke RC-sperren før Start er valgt. En ugyldig profil
+viser feil og lar velgeren stå åpen. På PC finnes Start-knappene også direkte
+i Game-visningen, uten at F4-panelet må åpnes.
+
+Velkomstmenyen bruker en fast, vannrett plassering foran brukeren, slik at
+lagrede menyvinkler ikke gjør første valg vanskelig å nå. Etter Start brukes
+profilens vanlige menyplassering. Profilvalg endrer ikke den lagrede startfilen
+uten at du velger å lagre den. Eksisterende profiler og innstillinger beholdes.
+
+**Kontroller og hjelp** viser tre deler:
+
+- Pilotering: venstre/høyre hånd med knapper og aktive funksjoner. Oversikten
+  følger ombindingene i profilen. Venstre spaks bildejustering forklares separat.
+- Meny og peker: åpne meny, peke/velge, justere verdier og lagre.
+- Flytt vinduer: gripeknapp, side/høyde, avstand, pitch/yaw og lagring. Den
+  valgte gripeknappen og avstandsmodifikatoren vises fra innstillingene.
+
+Dette er en hjelpeside som åpnes fra menyen, og dekker ikke pilotbildet når
+menyen lukkes. Bruk **Hjem** for å gå tilbake. Mer avanserte valg er beholdt.
+Praktisk lesbarhet og betjening må fortsatt prøves i Quest.

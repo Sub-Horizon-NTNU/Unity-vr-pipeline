@@ -94,7 +94,7 @@ namespace ROVVR.Editor
             var recordingCopy = RovVideoViewProfile.Parse(JsonUtility.ToJson(recordingProfile));
             Expect(recordingCopy.pilot.recordFullHd && !recordingCopy.pilot.recordPresentation && !recordingCopy.pilot.recordFlipVertical, "Recording choices must survive profile roundtrip"); checks++;
             Near(recordingCopy.pilot.menuAngles.x, 15); Near(recordingCopy.pilot.menuAngles.y, -35); checks++;
-            return checks + RovPointerChecks.Run();
+            return checks + RovPointerChecks.Run() + RovOnboardingChecks.Run();
         }
         private static void Invoke(object target, string name) => target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic).Invoke(target, null);
         private static void Near(float a, float b) => Expect(Mathf.Abs(a - b) < 0.001f, $"Expected {b}, got {a}");

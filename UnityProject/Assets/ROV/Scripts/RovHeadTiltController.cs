@@ -45,6 +45,7 @@ namespace ROVVR
         public RovHudTelemetry HudTelemetry { get; } = new RovHudTelemetry();
         public int CommandsSent { get; private set; }
         public bool RcControlSelected => paused;
+        public bool StartupSelectionPending { get; set; }
         public string LastStopReason { get; private set; } = "";
         public string RcGateStatus { get; private set; } = "VR-prioritet ikke klargjort";
         public float AcknowledgementAge => lastAcceptedAt < 0f ? float.PositiveInfinity : Time.realtimeSinceStartup - lastAcceptedAt;
@@ -131,13 +132,13 @@ namespace ROVVR
             tracked = TryReadHeadPitch(out float pitch);
             if (tracked) HeadPitch = pitch;
 
-            bool ready = focused && !paused && tracked && !commandRejected
+            bool ready = !StartupSelectionPending && focused && !paused && tracked && !commandRejected
                 && (!HeadFollowingEnabled || !compensateRovPitch || AttitudeLive)
                 && heartbeat.IsFresh(Time.realtimeSinceStartup) && Time.realtimeSinceStartup >= retryAt;
 
             if (!ready)
             {
-                string reason = paused ? "RC/kontroller valgt" : !focused ? "Venter på VR-fokus"
+                string reason = StartupSelectionPending ? "Velg profil og trykk Start" : paused ? "RC/kontroller valgt" : !focused ? "Venter på VR-fokus"
                     : !tracked ? "Venter på VR-headsett" : commandRejected ? "ROV avviste tiltkommandoen"
                     : BlueOsLive && compensateRovPitch && !AttitudeLive ? "Venter på fersk ROV-IMU" : "Venter på BlueOS";
                 SuspendForInterruption(reason);

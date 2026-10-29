@@ -11,13 +11,14 @@ namespace ROVVR
     {
         private RectTransform pilotMenuRoot, pilotMenuPage;
         private Text pilotMenuTitle, pilotMenuStatus;
-        private int pilotPage, layoutCard, bindingIndex;
+        private PilotMenuItem closeMenuItem;
+        private int pilotPage = 12, layoutCard, bindingIndex;
         private float menuTextAt;
         private readonly bool[] menuTriggerHeld = new bool[2];
         private readonly PilotMenuItem[] capturedMenuSliders = new PilotMenuItem[2];
         private readonly List<PilotMenuItem> menuItems = new List<PilotMenuItem>();
         private readonly List<PilotMenuItem> pageItems = new List<PilotMenuItem>();
-        private static readonly string[] PilotPages = { "ZOOM", "DETAIL PLACEMENT", "VIDEO", "HUD", "HUD PLACEMENT", "COMPASS / TILT", "PROFILES", "BINDINGS", "POINTERS", "MOVE WINDOWS", "MENU PLACEMENT", "RECORDING" };
+        private static readonly string[] PilotPages = { "ZOOM", "ZOOMVINDU", "BILDE", "INSTRUMENTER", "HUD-PLASSERING", "KAMERA OG KOMPASS", "PROFILER", "KNAPPEVALG", "PEKERE", "FLYTT VINDUER", "MENYPLASSERING", "OPPTAK", "HJEM", "KONTROLLER OG HJELP", "VELKOMMEN / VELG PROFIL", "GI PROFILEN ET NAVN", "AVANSERTE VALG" };
         private static readonly string[] CardNames = { "Status", "Battery", "Depth", "Camera tilt", "Attitude", "Diagnostics" };
 
         private sealed class PilotMenuItem
@@ -49,6 +50,7 @@ namespace ROVVR
         public void TogglePilotMenu()
         {
             if (!Application.isPlaying || eye == null) return;
+            if (pilotMenuOpen && startupPending) { pilotPage = 14; BuildMenuPage(); return; }
             EnsurePilotMaterials();
             pilotMenuOpen = !pilotMenuOpen;
             if (pilotMenuRoot == null)
@@ -59,14 +61,14 @@ namespace ROVVR
                 var canvas = go.GetComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
                 canvas.worldCamera = eye.GetComponent<Camera>(); canvas.sortingOrder = 250;
                 var bg = go.AddComponent<Image>(); bg.material = pilotUiMaterial; bg.color = new Color(0.018f, 0.032f, 0.052f, 0.98f);
-                pilotMenuTitle = PilotLabel(pilotMenuRoot, "ROV / PILOT   |   LEFT TRIGGER: MOVE", 0, 415, 850, 60, 26);
-                MenuButton(pilotMenuRoot, "<", -360, 345, 90, 55, () => { pilotPage = (pilotPage + PilotPages.Length - 1) % PilotPages.Length; BuildMenuPage(); }, false);
-                MenuButton(pilotMenuRoot, ">", 360, 345, 90, 55, () => { pilotPage = (pilotPage + 1) % PilotPages.Length; BuildMenuPage(); }, false);
-                MenuButton(pilotMenuRoot, "CLOSE", 0, -420, 280, 54, () => TogglePilotMenu(), false);
+                pilotMenuTitle = PilotLabel(pilotMenuRoot, "SUB HORIZON   /   PILOT", 0, 415, 850, 60, 26);
+                closeMenuItem = MenuButton(pilotMenuRoot, "LUKK", 0, -420, 220, 54, () => TogglePilotMenu(), false);
+                MenuButton(pilotMenuRoot, "HJEM", -310, -420, 180, 54, () => GoPilotPage(startupPending ? 14 : 12), false);
+                MenuButton(pilotMenuRoot, "? HJELP", 310, -420, 180, 54, () => GoPilotPage(13), false);
                 pilotMenuStatus = PilotLabel(pilotMenuRoot, "", 0, -355, 840, 65, 20);
             }
             pilotMenuRoot.gameObject.SetActive(pilotMenuOpen);
-            if (pilotMenuOpen) { RefreshProfiles(); PositionPilotMenu(); BuildMenuPage(); }
+            if (pilotMenuOpen) { RefreshProfiles(); pilotPage = startupPending ? 14 : 12; PositionPilotMenu(); BuildMenuPage(); }
             // Consume the opening press; a held trigger cannot click through into the menu.
             for (int i = 0; i < 2; i++)
             {
@@ -78,7 +80,8 @@ namespace ROVVR
         private void PositionPilotMenu()
         {
             if (eye == null || pilotMenuRoot == null) return;
-            Vector3 forward = eye.forward;
+            Vector3 forward = startupPending ? Vector3.ProjectOnPlane(eye.forward, Vector3.up) : eye.forward;
+            if (forward.sqrMagnitude < 0.001f) forward = Vector3.forward;
             menuAnchorPosition = eye.position;
             menuAnchorRotation = Quaternion.LookRotation(forward, Vector3.up);
             ApplyMenuPlacement();
@@ -86,6 +89,8 @@ namespace ROVVR
 
         private void ApplyMenuPlacement()
         {
+            if (startupPending && pilotMenuRoot != null)
+            { pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition + menuAnchorRotation * new Vector3(0, -0.05f, 1.25f), menuAnchorRotation); return; }
             if (pilotMenuRoot != null) pilotMenuRoot.SetPositionAndRotation(menuAnchorPosition
                 + menuAnchorRotation * new Vector3(pilot.menuSide, pilot.menuHeight, pilot.menuDistance),
                 menuAnchorRotation * Quaternion.Euler(pilot.menuAngles.x, pilot.menuAngles.y, 0f));
@@ -129,9 +134,10 @@ namespace ROVVR
             capturedMenuSliders[0] = capturedMenuSliders[1] = null;
             foreach (var item in pageItems) menuItems.Remove(item);
             pageItems.Clear();
-            if (pilotMenuPage != null) { pilotMenuPage.gameObject.SetActive(false); Destroy(pilotMenuPage.gameObject); }
+            if (pilotMenuPage != null) { pilotMenuPage.gameObject.SetActive(false); if (Application.isPlaying) Destroy(pilotMenuPage.gameObject); else DestroyImmediate(pilotMenuPage.gameObject); }
             pilotMenuPage = PilotNode("Page", pilotMenuRoot, 0, 0, 900, 650);
-            PilotLabel(pilotMenuPage, $"{pilotPage + 1} / {PilotPages.Length}   {PilotPages[pilotPage]}", 0, 345, 600, 55, 27);
+            PilotLabel(pilotMenuPage, PilotPages[pilotPage], 0, 345, 600, 55, 27);
+            if (closeMenuItem != null) closeMenuItem.rect.gameObject.SetActive(!startupPending);
             switch (pilotPage)
             {
                 case 0:
@@ -202,16 +208,13 @@ namespace ROVVR
                     }
                     break;
                 case 6:
-                    MenuAction(() => "Profile: " + SelectedProfileName + "  >", () => { if (profileNames.Length > 0) selectedProfile = (selectedProfile + 1) % profileNames.Length; });
-                    MenuAction(() => "Load selected profile", () => { if (profileNames.Length > 0) LoadNamedProfile(SelectedProfileName); });
-                    MenuAction(() => "Save over selected profile (.bak kept)", () => { if (profileNames.Length > 0) SaveNamedProfile(SelectedProfileName); });
-                    MenuAction(() => "Save as new profile", () => SaveNamedProfile("VR-" + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff")));
-                    MenuAction(() => "Save startup JSON", SaveCalibration);
-                    MenuAction(() => "Load startup JSON", () => { LoadCalibration(); BuildMenuPage(); });
-                    MenuSlider("Menu distance", () => pilot.menuDistance, v => { pilot.menuDistance = v; ApplyMenuPlacement(); }, 0.8f, 3, " m");
-                    MenuSlider("Menu height", () => pilot.menuHeight, v => { pilot.menuHeight = v; ApplyMenuPlacement(); }, -1.5f, 1.5f, " m");
-                    MenuAction(() => "Place menu in front of me", PositionPilotMenu);
+                    BuildProfilePicker(false);
                     break;
+                case 12: BuildPilotHome(); break;
+                case 13: BuildControllerHelp(); break;
+                case 14: BuildProfilePicker(true); break;
+                case 15: BuildProfileKeyboard(); break;
+                case 16: BuildAdvancedHome(); break;
                 case 10:
                     MenuSlider("Menu pitch", () => pilot.menuAngles.x, v => { pilot.menuAngles.x = v; ApplyMenuPlacement(); }, -60, 60, "°");
                     MenuSlider("Menu yaw", () => pilot.menuAngles.y, v => { pilot.menuAngles.y = v; ApplyMenuPlacement(); }, -80, 80, "°");
@@ -273,8 +276,8 @@ namespace ROVVR
             if (Time.unscaledTime >= menuTextAt)
             {
                 RefreshMenuText();
-                string status = WindowDragActive ? "HELD / left stick: move / grip + left stick: distance\nRight stick: pitch/yaw / release left trigger to place"
-                    : string.IsNullOrEmpty(pilotMessage) ? "Right trigger: select / Left trigger: grab window + left stick.\nChanges are live; save JSON/profile to keep placement." : pilotMessage;
+                string status = WindowDragActive ? "Venstre spak: flytt / grip + spak: avstand\nHøyre spak: vinkle / slipp gripeknappen for å plassere"
+                    : string.IsNullOrEmpty(pilotMessage) ? PageHint() : pilotMessage;
                 if (pilotMenuStatus.text != status) pilotMenuStatus.text = status;
                 menuTextAt = Time.unscaledTime + 0.1f;
             }

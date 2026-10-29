@@ -91,7 +91,7 @@ namespace ROVVR
 #endif
                 bool repeat = controlsLive && held && (binding.action == RovPilotAction.ZoomIn || binding.action == RovPilotAction.ZoomOut)
                     && Time.unscaledTime >= nextZoomStep;
-                bool suppress = WindowDragActive || ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
+                bool suppress = (startupPending && binding.action != RovPilotAction.Menu) || WindowDragActive || ((pilotMenuOpen || menuWasOpen) && binding.action != RovPilotAction.Menu)
                     || (GrabConsumesPilotInput(binding.button) && binding.action != RovPilotAction.Menu)
                     || (binding.action == RovPilotAction.AimZoom && TryPointedWindow(1, out _, out _, out _));
                 if (ProcessPilotInput(binding.action, held, controlsLive, key, repeat, suppress))
@@ -149,6 +149,7 @@ namespace ROVVR
         {
             if (eye == null) return;
             EnsurePilotMaterials();
+            UpdatePilotStartup();
             UpdateZoomMesh();
             UpdateDetailView();
             if (pilotMenuOpen) ApplyMenuPlacement();
@@ -300,18 +301,20 @@ namespace ROVVR
 
         public void SaveNamedProfile(string name)
         {
-            try { GetProfile().Save(RovProfileLibrary.ProfilePath(name)); RefreshProfiles(); pilotMessage = "Saved profile: " + name; }
+            try { GetProfile().Save(RovProfileLibrary.ProfilePath(name)); activeProfileName = name; RefreshProfiles(); pilotMessage = "Profil lagret: " + name; }
             catch (Exception error) { pilotMessage = error.Message; }
         }
-        public void LoadNamedProfile(string name)
+        public void LoadNamedProfile(string name) => TryLoadNamedProfile(name);
+        private bool TryLoadNamedProfile(string name)
         {
             try
             {
                 var profile = RovVideoViewProfile.Parse(File.ReadAllText(RovProfileLibrary.ProfilePath(name)));
-                ApplyProfile(profile); profileName = name; pilotMessage = "Loaded: " + name + ". Save JSON to use on next start.";
+                ApplyProfile(profile); profileName = activeProfileName = name; pilotMessage = "Lastet: " + RovProfileLibrary.FriendlyName(name) + ". Lagre oppstartsoppsett for å beholde endringene.";
                 if (pilotMenuOpen) BuildMenuPage();
+                return true;
             }
-            catch (Exception error) { pilotMessage = error.Message; }
+            catch (Exception error) { pilotMessage = error.Message; return false; }
         }
         private void RefreshProfiles()
         {
@@ -325,6 +328,7 @@ namespace ROVVR
             if (!desktopToolsExpanded) return;
             if (pilot == null) pilot = new RovPilotSettings();
             GUILayout.Label("Digital zoom / same source video, no extra detail");
+            DrawStartupDesktop();
             DrawRecordingControls();
             Slider("Main video zoom", ref pilot.mainZoom, 1f, 8f, "x");
             Slider("Target left/right", ref pilot.zoomCenter.x, 0f, 1f, "", "F2");
@@ -372,6 +376,12 @@ namespace ROVVR
             profileName = GUILayout.TextField(profileName, 64);
             if (GUI.GetNameOfFocusedControl() == "RovPilotProfileName") RovPilotTextEntry.MarkActive();
             if (GUILayout.Button("Save named profile (replaces same name; .bak kept)")) SaveNamedProfile(profileName);
+            if (!string.IsNullOrEmpty(activeProfileName) && GUILayout.Button("Gi aktiv profil navnet i feltet over"))
+            {
+                try { RovProfileLibrary.Rename(activeProfileName, profileName); activeProfileName = profileName; RefreshProfiles(); pilotMessage = "Nytt profilnavn: " + profileName; }
+                catch (Exception error) { pilotMessage = error.Message; }
+            }
+            if (Application.isPlaying && GUILayout.Button("Kontroller og hjelp i VR")) GoPilotPage(13);
             if (!profileListLoaded) RefreshProfiles();
             if (GUILayout.Button("Refresh profile list")) RefreshProfiles();
             foreach (string name in profileNames) if (GUILayout.Button("Load: " + name)) LoadNamedProfile(name);

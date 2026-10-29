@@ -117,6 +117,28 @@ namespace ROVVR
 
     public static class RovProfileLibrary
     {
+        public static string FriendlyName(string name)
+        {
+            if (name != null && name.StartsWith("VR-") && DateTime.TryParseExact(name.Substring(3), "yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out DateTime saved))
+                return "Lagret profil · " + saved.ToString("dd. MMM HH:mm", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"));
+            return name;
+        }
+        public static string NextName(string stem, string[] names)
+        {
+            ProfilePath(stem);
+            var used = new System.Collections.Generic.HashSet<string>(names, StringComparer.OrdinalIgnoreCase);
+            if (!used.Contains(stem)) return stem;
+            for (int n = 2; n < 10000; n++) { string candidate = stem + " " + n; if (candidate.Length <= 64 && !used.Contains(candidate)) return candidate; }
+            throw new IOException("Velg et kortere profilnavn.");
+        }
+        public static void Rename(string oldName, string newName)
+        {
+            string source = ProfilePath(oldName), target = ProfilePath(newName);
+            if (oldName == newName) return;
+            if (File.Exists(target)) throw new IOException("En profil med dette navnet finnes allerede.");
+            File.Move(source, target);
+            if (File.Exists(source + ".bak") && !File.Exists(target + ".bak")) File.Copy(source + ".bak", target + ".bak");
+        }
         public static string DirectoryPath => Path.Combine(Application.persistentDataPath, "Profiles");
         public static string ProfilePath(string name)
         {
