@@ -197,6 +197,8 @@ namespace ROVVR
                         MenuSlider("Servo speed", () => tilt.ServoMaximumSpeed, v => tilt.ServoMaximumSpeed = v, 5, 90, "°/s");
                         MenuToggle("Pitch compensation", () => tilt.CompensateRovPitch, SetPitchCompensation);
                         MenuSlider("Pitch compensation strength", () => tilt.PitchCompensationStrength, v => tilt.PitchCompensationStrength = v, 0, 1.5f, "x");
+                        MenuAction(() => tilt.RcControlSelected ? "Camera control: RC / select VR" : "Camera control: VR / select RC", () => tilt.SelectRcControl(!tilt.RcControlSelected));
+                        MenuAction(() => "Restore RC camera control", () => tilt.SelectRcControl(true));
                     }
                     break;
                 case 6:

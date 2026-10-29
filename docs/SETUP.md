@@ -12,7 +12,10 @@
 Ferdigbuilden trenger ingen Unity Editor og inkluderer GStreamer-runtime.
 Microsoft Visual C++ x64 Redistributable kan være nødvendig på en ny PC.
 Quest/Link-driver og OpenXR-runtime må være satt opp på vertsmaskinen.
-Programmet endrer ikke nettverkskort, brannmur eller autopilotparametere.
+Programmet endrer ikke nettverkskort eller brannmur automatisk. Publisert v2
+endrer ikke autopilotparametere; den nyere VR-prioritetsrettelsen sperrer og
+gjenoppretter RC-kamerafunksjoner med parameterendringer og gjenopprettingsjournal.
+Les [VR-prioritet og RC-håndover](PILOT_TOOLS.md#vr-prioritet-og-rc-håndover-etter-v2).
 
 ## Brannmur for videostrøm
 

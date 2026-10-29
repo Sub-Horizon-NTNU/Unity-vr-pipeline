@@ -44,6 +44,10 @@ namespace ROVVR
         public bool BlueOsLive => heartbeat.IsFresh(Time.realtimeSinceStartup);
         public RovHudTelemetry HudTelemetry { get; } = new RovHudTelemetry();
         public int CommandsSent { get; private set; }
+        public bool RcControlSelected => paused;
+        public string LastStopReason { get; private set; } = "";
+        public string RcGateStatus { get; private set; } = "VR-prioritet ikke klargjort";
+        public float AcknowledgementAge => lastAcceptedAt < 0f ? float.PositiveInfinity : Time.realtimeSinceStartup - lastAcceptedAt;
         public float ServoSmoothingSeconds
         {
             get => smoothingSeconds;
@@ -89,10 +93,18 @@ namespace ROVVR
         private float ackRetryAt = -1f;
         private int ackRetryCount;
         private long ackCounter = -1, ackBaseline = -1;
+        private long processedAckCounter = -1;
+        private float lastAcceptedAt = -1f;
+        private bool resumeTarget, gateBusy, shuttingDown;
+        private bool quitPending, quitReady;
+        private RovRcCameraGate rcGate;
         private string connectionError;
 
         private void OnEnable()
         {
+            shuttingDown = false;
+            quitReady = quitPending = false;
+            Application.wantsToQuit += AllowQuit;
             RefreshControlFocus();
             heartbeat.Reset();
             HudTelemetry.Reset();
@@ -125,12 +137,18 @@ namespace ROVVR
 
             if (!ready)
             {
-                if (canSend || ownsMount) ReleaseControl();
-                canSend = false;
-                ResetCalibration();
-                SetStatus(paused ? "Hodestyring pauset" : !focused ? "Venter på VR-fokus"
+                string reason = paused ? "RC/kontroller valgt" : !focused ? "Venter på VR-fokus"
                     : !tracked ? "Venter på VR-headsett" : commandRejected ? "ROV avviste tiltkommandoen"
-                    : BlueOsLive && compensateRovPitch && !AttitudeLive ? "Venter på fersk ROV-IMU" : "Venter på BlueOS");
+                    : BlueOsLive && compensateRovPitch && !AttitudeLive ? "Venter på fersk ROV-IMU" : "Venter på BlueOS";
+                SuspendForInterruption(reason);
+                return;
+            }
+
+            if (gateBusy || rcGate == null || !rcGate.Active)
+            {
+                canSend = false;
+                if (!gateBusy) AcquireRcGate();
+                SetStatus(RcGateStatus);
                 return;
             }
 
@@ -159,6 +177,12 @@ namespace ROVVR
 
             if (HeadFollowingEnabled)
             {
+                if (resumeTarget)
+                {
+                    if (!MountTelemetryLive) { SetStatus("Venter på ferskt tiltmål før gjenopptak"); return; }
+                    TargetPitch = Mathf.Clamp(ReportedPitch, minimumPitch, maximumPitch);
+                    resumeTarget = false;
+                }
                 float target = compensateRovPitch
                     ? RovCameraPoseMath.TrimmedMountPitch(DesiredWorldPitch, VehicleRotation, pitchCompensationStrength, minimumPitch, maximumPitch)
                     : Mathf.Clamp(DesiredWorldPitch, minimumPitch, maximumPitch);
@@ -166,14 +190,14 @@ namespace ROVVR
                     maximumSpeed, Mathf.Min(Time.unscaledDeltaTime, 0.1f));
             }
             canSend = true;
-            SetStatus(CommandAccepted ? HeadFollowingEnabled ? "Hodestyring aktiv" : "Hodefølging av; kameratilt låst" : "Kobler til kameratilt...");
+            SetStatus(CommandAccepted ? HeadFollowingEnabled ? "VR-tilt: fersk ACK (ikke fysisk feedback)" : "Hodefølging av; kameratilt låst" : "VR-tilt: venter på fersk ACK");
 
             CheckAcknowledgementTimeout(Time.realtimeSinceStartup);
         }
 
         private void CheckAcknowledgementTimeout(float now)
         {
-            if (firstCommandAt >= 0f && !CommandAccepted && now - firstCommandAt > 4f)
+            if (firstCommandAt >= 0f && now - (lastAcceptedAt >= firstCommandAt ? lastAcceptedAt : firstCommandAt) > 4f)
                 ScheduleAcknowledgementRetry(now, "No fresh COMMAND_ACK from the autopilot.");
         }
 
@@ -186,7 +210,8 @@ namespace ROVVR
             ackRetryCount = Mathf.Min(ackRetryCount + 1, 4);
             float delay = Mathf.Pow(2f, ackRetryCount - 1); // 1, 2, 4, 8 seconds.
             ackRetryAt = now + delay;
-            ReleaseControl();
+            ReleaseControl(false);
+            resumeTarget = calibrated;
             if (isActiveAndEnabled) Debug.LogWarning($"[ROV tilt] {reason} Retrying in {delay:F0}s.", this);
         }
 
@@ -204,6 +229,7 @@ namespace ROVVR
             if (result == "MAV_RESULT_ACCEPTED")
             {
                 CommandAccepted = true;
+                lastAcceptedAt = now;
                 ackRetryCount = 0;
             }
             else if (result == "MAV_RESULT_TEMPORARILY_REJECTED")
@@ -286,12 +312,83 @@ namespace ROVVR
         [ContextMenu("Pause / resume head control (Play mode)")]
         public void TogglePause()
         {
-            paused = !paused;
+            SelectRcControl(!paused);
+        }
+
+        public void SelectRcControl(bool rc)
+        {
+            paused = rc;
             commandRejected = false;
             ackRetryAt = -1f;
             ackRetryCount = 0;
-            ResetCalibration();
-            if (paused) { canSend = false; ReleaseControl(); }
+            if (rc) { SuspendForInterruption("RC/kontroller valgt"); RestoreRcGate(); }
+            else { resumeTarget = calibrated; retryAt = 0f; }
+        }
+
+        private void SuspendForInterruption(string reason)
+        {
+            if (canSend || stableSince >= 0f) resumeTarget |= calibrated;
+            canSend = false;
+            stableSince = -1f;
+            AbortRequest(commandRequest);
+            firstCommandAt = -1f; lastAcceptedAt = -1f; CommandAccepted = false;
+            // Hold the autopilot's last target. Do not silently hand control to RC
+            // or treat the pilot's current head angle as a new neutral on recovery.
+            LastStopReason = reason;
+            SetStatus(reason);
+        }
+
+        private async void AcquireRcGate()
+        {
+            gateBusy = true; RcGateStatus = "Sperrer RC-kamerainnganger for VR...";
+            try
+            {
+                if (rcGate == null) rcGate = new RovRcCameraGate(blueOsUrl);
+                await rcGate.AcquireAsync();
+                RcGateStatus = "VR-prioritet: RC-kamerainnganger sperret";
+                if (shuttingDown || paused || !isActiveAndEnabled) { await rcGate.RestoreAsync(); ReleaseControl(); }
+            }
+            catch (Exception e) { RcGateStatus = "RC-sperre/gjenoppretting feilet: " + e.Message; retryAt = Time.realtimeSinceStartup + 5f; }
+            finally { gateBusy = false; }
+        }
+
+        private async void RestoreRcGate()
+        {
+            if (gateBusy) return; // Acquire's continuation restores if RC/exit was selected meanwhile.
+            gateBusy = true;
+            try
+            {
+                if (rcGate == null) rcGate = new RovRcCameraGate(blueOsUrl);
+                await rcGate.RestoreAsync();
+                RcGateStatus = "RC-kamerainnganger gjenopprettet";
+                ReleaseControl();
+            }
+            catch (Exception e) { RcGateStatus = "RC-gjenoppretting feilet: " + e.Message; Debug.LogError("[ROV tilt] " + RcGateStatus); }
+            finally { gateBusy = false; }
+        }
+
+        private bool AllowQuit()
+        {
+            if (quitReady || (rcGate == null && !gateBusy)) return true;
+            if (!quitPending) FinishQuit();
+            return false;
+        }
+
+        private async void FinishQuit()
+        {
+            quitPending = true; shuttingDown = true; paused = true;
+            SuspendForInterruption("Avslutter; gjenoppretter RC-kamerainnganger...");
+            try
+            {
+                while (gateBusy) await System.Threading.Tasks.Task.Delay(100);
+                if (rcGate != null) await rcGate.RestoreAsync();
+                ReleaseControl();
+                // Give the best-effort RC mode request time to complete as well.
+                while (releaseRequest != null) await System.Threading.Tasks.Task.Delay(50);
+                quitReady = true; Application.Quit();
+            }
+            catch (Exception e) { RcGateStatus = "Kunne ikke gjenopprette RC før avslutning: " + e.Message; Debug.LogError("[ROV tilt] " + RcGateStatus); }
+            finally { quitPending = false; }
         }
 
         private void ResetCalibration()
@@ -353,9 +450,10 @@ namespace ROVVR
                 if (ack?.status?.time == null) return;
                 ackCounter = ack.status.time.counter;
                 var reply = ack.message;
-                if (firstCommandAt < 0f || ackCounter <= ackBaseline || reply?.command?.type != RovMountProtocol.MountCommand
+                if (firstCommandAt < 0f || releaseRequest != null || !canSend || ackCounter <= ackBaseline || ackCounter == processedAckCounter || reply?.command?.type != RovMountProtocol.MountCommand
                     || reply.target_system != RovMountProtocol.SourceSystem
                     || reply.target_component != RovMountProtocol.SourceComponent) return;
+                processedAckCounter = ackCounter;
                 ObserveCommandResult(reply.result?.type, Time.realtimeSinceStartup);
             }
             catch (Exception error) { connectionError = error.Message; }
@@ -372,6 +470,7 @@ namespace ROVVR
                     {
                         ackBaseline = ackCounter;
                         firstCommandAt = started;
+                        lastAcceptedAt = -1f;
                         CommandAccepted = false;
                     }
                     using (var request = RovMountProtocol.Post(blueOsUrl, TargetPitch))
@@ -396,11 +495,13 @@ namespace ROVVR
             }
         }
 
-        private void ReleaseControl()
+        private void ReleaseControl(bool sendRcMode = true)
         {
             AbortRequest(commandRequest);
             firstCommandAt = -1f;
             CommandAccepted = false;
+            lastAcceptedAt = -1f;
+            if (!sendRcMode) return;
             if (!ownsMount || releaseRequest != null) return;
             ownsMount = false;
             // One best-effort mode change restores joystick tilt without changing
@@ -449,8 +550,7 @@ namespace ROVVR
             if (!focused)
             {
                 canSend = false;
-                ResetCalibration();
-                ReleaseControl();
+                SuspendForInterruption("Venter på VR-fokus");
             }
         }
 
@@ -461,15 +561,17 @@ namespace ROVVR
             if (!focused)
             {
                 canSend = false;
-                ResetCalibration();
-                ReleaseControl();
+                SuspendForInterruption("VR-økt pauset");
             }
         }
 
         private void OnDisable()
         {
+            Application.wantsToQuit -= AllowQuit;
             canSend = false;
-            ReleaseControl();
+            shuttingDown = true;
+            AbortRequest(commandRequest);
+            if (!quitReady) { if (rcGate != null) RestoreRcGate(); else if (ownsMount) ReleaseControl(); }
             AbortRequest(telemetryRequest);
             StopAllCoroutines();
             commandRequest = null;
@@ -479,11 +581,16 @@ namespace ROVVR
         private void OnGUI()
         {
             if (!showDesktopStatus) return;
-            GUILayout.BeginArea(new Rect(12, 12, 400, 132), GUI.skin.box);
+            GUILayout.BeginArea(new Rect(12, 12, 500, 210), GUI.skin.box);
             GUILayout.Label("ROV-kamera: " + Status);
             GUILayout.Label($"Målvinkel: {TargetPitch:F1}°   Rapportert: {ReportedPitch:F1}°");
             if (compensateRovPitch) GUILayout.Label($"Hodeønske: {DesiredWorldPitch:F1}°   ROV pitch: {VehicleRollPitchYaw.y:F1}°");
             GUILayout.Label("A: lås/følg   B: HUD   X: sentrer   R: nullstill   P: servopause");
+            GUILayout.Label(RcGateStatus);
+            GUILayout.Label($"HTTP sendt: {CommandsSent}  PWM11: {ServoPwm}  ACK-alder: {AcknowledgementAge:F1}s");
+            GUILayout.Label("Sist stopp: " + LastStopReason);
+            if (GUILayout.Button(paused ? "Ta VR-kontroll" : "Gi kamerakontroll til RC")) SelectRcControl(!paused);
+            if (paused && GUILayout.Button("Prøv RC-gjenoppretting igjen")) SelectRcControl(true);
             if (!string.IsNullOrEmpty(connectionError)) GUILayout.Label("BlueOS: " + connectionError);
             GUILayout.EndArea();
         }

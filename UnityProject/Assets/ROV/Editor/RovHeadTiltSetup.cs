@@ -163,6 +163,8 @@ namespace ROVVR.Editor
                     reportedPitch = item.ReportedPitch, pwm = item.ServoPwm, accepted = item.CommandAccepted,
                     controlFocused = item.ControlFocused, headTracked = item.HeadTracked,
                     blueOsLive = item.BlueOsLive, commandsSent = item.CommandsSent,
+                    rcSelected = item.RcControlSelected, rcGate = item.RcGateStatus, lastStop = item.LastStopReason,
+                    ackAge = float.IsInfinity(item.AcknowledgementAge) ? -1f : item.AcknowledgementAge,
                     compensateRovPitch = item.CompensateRovPitch, attitudeLive = item.AttitudeLive,
                     desiredWorldPitch = item.DesiredWorldPitch, requestedMountPitch = item.RequestedPitch,
                     vehiclePitch = item.VehicleRollPitchYaw.y,
@@ -185,7 +187,9 @@ namespace ROVVR.Editor
         }
         [Serializable] private sealed class LiveController
         {
-            public string scene, status;
+            public string scene, status, rcGate, lastStop;
+            public bool rcSelected;
+            public float ackAge;
             public bool active, accepted, controlFocused, headTracked, blueOsLive, compensateRovPitch, attitudeLive;
             public float headPitch, targetPitch, reportedPitch;
             public float desiredWorldPitch, requestedMountPitch, vehiclePitch, estimatedWorldPitch, pitchCompensationStrength;

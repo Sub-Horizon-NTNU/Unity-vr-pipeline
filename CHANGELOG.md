@@ -1,5 +1,11 @@
 # Endringslogg
 
+## Etter v2 — servostyring
+
+- VR-prioritet via kontrollert sperring av RC-kamerainnganger, med eksplisitt VR/RC-valg, gjenopprettingsjournal og verifisert tilbakeføring.
+- Hodenøytral bevares ved fokus-/tracking-/IMU-avbrudd og RC/VR-bytte.
+- Løpende ACK-ferskhet, avvisning av bufrede kvitteringer og tydeligere stoppdiagnostikk.
+
 ## v2 — 24. oktober 2026
 
 - MP4-opptak av ren kameravideo eller PC-speilbilde med HUD, fra VR-meny og PC-panel; 720p/1080p ved 30 fps.

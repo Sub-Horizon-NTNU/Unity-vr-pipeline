@@ -37,7 +37,13 @@ namespace ROVVR.Editor
 
                 Invoke(tilt, "ObserveCommandResult", "MAV_RESULT_ACCEPTED", 40f);
                 Expect(tilt.CommandAccepted && Get<int>(tilt, "ackRetryCount") == 0, "Acceptance must reset backoff for later interruptions"); checks++;
+                Set(tilt, "firstCommandAt", 38f); Set(tilt, "canSend", true);
+                Invoke(tilt, "CheckAcknowledgementTimeout", 43.9f);
+                Expect(tilt.CommandAccepted, "Recent ACK must remain valid"); checks++;
+                Invoke(tilt, "CheckAcknowledgementTimeout", 44.1f);
+                Expect(!tilt.CommandAccepted && !Get<bool>(tilt, "canSend"), "An old accepted ACK must expire during an active session"); checks++;
 
+                Invoke(tilt, "ObserveCommandResult", "MAV_RESULT_ACCEPTED", 44.5f);
                 Invoke(tilt, "ObserveCommandResult", "MAV_RESULT_TEMPORARILY_REJECTED", 45f);
                 Expect(!tilt.CommandAccepted && !Get<bool>(tilt, "commandRejected")
                     && !(bool)Invoke(tilt, "AcknowledgementRetryReady", 45.5f)
@@ -53,11 +59,24 @@ namespace ROVVR.Editor
                     Expect(Get<bool>(tilt, "commandRejected"), "Settings or retry expiration must never clear an explicit refusal");
                 }
                 checks++;
+                Set(tilt, "canSend", true); Set(tilt, "commandRejected", false);
+                Invoke(tilt, "SuspendForInterruption", "Test IMU gap");
+                Expect(tilt.HasHeadNeutral && Get<float>(tilt, "neutralPitch") == 12f && !Get<bool>(tilt, "canSend")
+                    && Get<bool>(tilt, "resumeTarget") && tilt.LastStopReason == "Test IMU gap", "Interruption must stop output while preserving neutral and recording its reason"); checks++;
+                // A cached ACK must be consumed once, and unrelated ACKs must not prove tilt control.
+                Set(tilt, "firstCommandAt", 0f); Set(tilt, "ackBaseline", 5L); Set(tilt, "canSend", true);
+                string envelope = "{\"messages\":{\"HEARTBEAT\":{\"message\":{\"mavtype\":{\"type\":\"MAV_TYPE_SUBMARINE\"}},\"status\":{\"time\":{\"counter\":10}}},\"COMMAND_ACK\":{\"message\":{\"command\":{\"type\":\"MAV_CMD_DO_MOUNT_CONTROL\"},\"result\":{\"type\":\"MAV_RESULT_ACCEPTED\"},\"target_system\":245,\"target_component\":191},\"status\":{\"time\":{\"counter\":6}}}}}";
+                Invoke(tilt, "ReadTelemetry", envelope);
+                Expect(tilt.CommandAccepted, "Fresh matching ACK must be observed"); checks++;
+                Set(tilt, "lastAcceptedAt", -50f); Invoke(tilt, "ReadTelemetry", envelope);
+                Expect(Get<float>(tilt, "lastAcceptedAt") == -50f, "Cached ACK must not refresh watchdog"); checks++;
+                Invoke(tilt, "ReadTelemetry", envelope.Replace("DO_MOUNT_CONTROL", "REQUEST_MESSAGE").Replace("\"counter\":6", "\"counter\":7"));
+                Expect(Get<float>(tilt, "lastAcceptedAt") == -50f, "Other commands must not refresh tilt ACK"); checks++;
                 Expect(!RovHeadTiltFocus.AllowsControl(true, false, true, false, true)
                     && !RovHeadTiltFocus.AllowsControl(true, false, true, true, false), "ACK recovery must retain native VR-focus stop conditions"); checks++;
             }
             finally { UnityEngine.Object.DestroyImmediate(go); }
-            return checks;
+            return checks + RovRcGateChecks.Run();
         }
 
         private const BindingFlags Fields = BindingFlags.Instance | BindingFlags.NonPublic;

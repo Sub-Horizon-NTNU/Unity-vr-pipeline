@@ -38,7 +38,10 @@ Manglende tracking, VR-fokus eller fersk nødvendig telemetri stopper styringen.
 Native Meta-fokus brukes for Quest Link, uavhengig av desktop-fokus.
 Manglende ACK får nytt forsøk med 1–8 s backoff. DENIED/UNSUPPORTED/FAILED
 blir stående som feil. P er separat pause som frigir mount til RC.
-Det sendes ingen thruster-, armerings- eller parameterendringskommandoer.
+Det sendes ingen thruster- eller armeringskommandoer. Etter-v2-styringen bruker
+PARAM_REQUEST_READ/PARAM_SET bare for å sperre og gjenopprette RC-kamerafunksjoner
+(RCn_OPTION 212/213/214). Originalverdier journalføres før endring og verifiseres
+ved tilbakeføring. Se VR-prioritet i PILOT_TOOLS.md.
 
 ## Native kode
 

@@ -218,3 +218,45 @@ sammen med sideplassering, høyde og avstand. **Reset menu angles** nullstiller
 helningen. De samme pitch/yaw-slidene finnes i PC-panelet. Verdiene er relative
 til menyens retning ved åpning og lagres med **Save startup JSON** eller en profil.
 
+
+## VR-prioritet og RC-håndover (etter v2)
+
+VR beholder kamerakontrollen til piloten velger **Camera control: RC** på
+**Compass / Tilt**-siden, PC-statusknappen eller P. A låser fortsatt skjermen
+og tiltmålet; A gir ikke håndkontrolleren kontroll. Velg VR igjen for å overta.
+Hodekalibreringen bevares ved avbrudd og RC/VR-bytte; X/R sentrerer eksplisitt.
+
+Før VR får sende tiltmål leses RC1–RC16_OPTION. Bare kamerafunksjonene
+212 (roll), 213 (pitch) og 214 (yaw) sperres med verdi 0. På dagens ROV er
+RC7_OPTION=214 og RC8_OPTION=213. Dette hindrer at vanlig joysticktilt bytter
+mounten tilbake til RC mens VR er valgt. Andre RC-/thrusterfunksjoner endres ikke.
+Dette er sperring av kamerainnganger, ikke en protokollås mot andre programmer
+som sender egne MAVLink mount-kommandoer. Ikke kjør flere VR-instanser mot samme ROV.
+En lokal fillås avviser en ekstra instans som bruker samme BlueOS-adresse.
+
+**PARAM_SET lagres på autopiloten.** Originalverdiene skrives til en lokal
+`rov-camera-rc-<adressehash>.json` i samme mappe som startprofilen før sperringen.
+Ved RC-valg/normal avslutning gjenopprettes og kontrolleres verdiene. Ved feil
+beholdes gjenopprettingsfilen og feilen vises; VR starter ikke på en ubekreftet
+sperre. Eksterne endringer til andre verdier overskrives ikke automatisk.
+
+Et strømbrudd, en krasj eller avslutning av Play kan avbryte gjenopprettingen.
+Bruk da **Restore RC camera control** i VR-menyen / RC-knappen på PC, eller
+stopp Play og velg **ROV → Restore camera RC mappings from recovery file**.
+Neste VR-overtakelse gjenoppretter også en uferdig journal før et nytt øyeblikksbilde.
+Behold journalen og bruk samme PC og BlueOS-adresse til verdiene er tilbakeført.
+Hvis journalen er utilgjengelig, må de dokumenterte originalverdiene gjenopprettes
+manuelt på ROV-en før vanlig kameratilt brukes. Ikke slett en uferdig journal.
+
+Ved mistet fokus, tracking, heartbeat eller fersk IMU stoppes nye tiltmål uten
+å nullstille hodenøytral eller gi RC en utilsiktet overtakelse. Ved retur brukes
+ferskt rapportert tiltmål som start for den eksisterende hastighetsbegrensningen.
+ACK må være ny, for riktig kommando og avsender; bufrede ACK-er teller bare én gang.
+Fire sekunder uten ny godkjenning stopper sending og utløser eksisterende begrensede
+forsøk. PC-status viser siste stoppårsak, ACK-alder, HTTP-sendeteller og PWM11.
+Rapportert vinkel/PWM er autopilotens beregnede mål, ikke fysisk servofeedback.
+
+Testene av RC-journal, delvis feil, eksterne endringer og konkurrerende lokale
+instanser bruker falske parameterverdier uten ROV-trafikk. Sperring/tilbakeføring
+er også kontrollert mot dagens ROV med Play stoppet, uten å sende tiltmål.
+Praktisk samtidig joystick-/headsettest og kontroll av mekanisk servobevegelse gjenstår.
